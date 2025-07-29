@@ -1,16 +1,44 @@
 # SplatTransform - 3D Gaussian Splat Converter
 
-SplatTransform is an open source CLI tool for reading gaussian splat PLY files and writing them to PLY, Compressed PLY, CSV, and SOGS format.
+SplatTransform is an open source CLI tool and JavaScript module for reading gaussian splat PLY files and writing them to PLY, Compressed PLY, CSV, and SOGS format.
 
 Multiple files may be combined and transformed before being written to the output.
 
 ## Installation
 
-First install the package globally:
+### CLI Usage
+
+Install the package globally for CLI usage:
 
 ```bash
 npm install -g @playcanvas/splat-transform
 ```
+
+### Module Usage
+
+Install the package locally for module usage:
+
+```bash
+npm install @playcanvas/splat-transform
+```
+
+Then import and use in your code:
+
+```typescript
+import { readPly, process, writeSogs, Vec3 } from "@playcanvas/splat-transform";
+
+// Read and transform data
+const fileData = await readPly(fileHandle);
+const processed = process(fileData.elements[0].dataTable, [
+  { kind: "scale", value: 0.5 },
+  { kind: "translate", value: new Vec3(0, 0, 10) },
+]);
+
+// Write output
+await writeSogs(outputFile, processed, "output.meta.json", 10, "cpu");
+```
+
+See [README-MODULE.md](./README-MODULE.md) for detailed module documentation.
 
 ## Usage
 
@@ -19,17 +47,20 @@ splat-transform [GLOBAL]  <input.{ply|splat|ksplat}> [ACTIONS]  ...  <output.{pl
 ```
 
 **Key points:**
+
 - Every time an `*.ply*` appears, it becomes the current working set; the following ACTIONS are applied in the order listed
 - The last file on the command line is treated as the output; anything after it is interpreted as actions that modify the final result
 
 ## Supported Formats
 
 **Input:**
+
 - `.ply` - Standard PLY format
 - `.splat` - Binary splat format (antimatter15 format)
 - `.ksplat` - Compressed binary splat format (mkkellogg format)
 
 **Output:**
+
 - `.ply` - Standard PLY format
 - `.compressed.ply` - Compressed PLY format
 - `meta.json` - SOGS format (JSON + WebP images)

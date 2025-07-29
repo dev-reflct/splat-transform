@@ -3,7 +3,7 @@
   "version": "0.5.2",
   "author": "PlayCanvas<support@playcanvas.com>",
   "homepage": "https://playcanvas.com",
-  "description": "CLI tool for 3D Gaussian splat format conversion and transformation",
+  "description": "CLI tool and JavaScript module for 3D Gaussian splat format conversion and transformation",
   "keywords": [
     "3d-gaussian-splatting",
     "cli",
@@ -17,17 +17,32 @@
     "type": "git",
     "url": "git+https://github.com/playcanvas/splat-transform.git"
   },
+  "main": "dist/module.mjs",
+  "module": "dist/module.mjs",
+  "types": "dist/module.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/module.mjs",
+      "types": "./dist/module.d.ts"
+    },
+    "./cli": {
+      "import": "./bin/cli.mjs"
+    }
+  },
   "bin": {
     "splat-transform": "bin/cli.mjs"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "bin/"
   ],
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w",
     "lint": "eslint src",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:cli": "node __test__/test-cli-equivalent.js",
+    "test:export": "node bin/cli.mjs example/skull.ply __test__/skull_output.meta.json"
   },
   "devDependencies": {
     "@playcanvas/eslint-config": "^2.1.0",

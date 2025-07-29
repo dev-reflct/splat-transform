@@ -1,0 +1,92 @@
+---
+description: Convert CLI tool to JavaScript module
+globs: ["src/index.ts", "bin/cli.mjs", "package.json"]
+alwaysApply: false
+---
+
+# CLI to JavaScript Module Conversion Guide
+
+When converting this CLI tool to a JavaScript module:
+
+## Core Conversion Strategy
+
+1. **Extract the main logic** from `src/index.ts` into separate, reusable functions
+2. **Remove CLI-specific code** like argument parsing, file I/O, and console output
+3. **Create a clean API** that accepts data structures instead of file paths
+4. **Maintain the core processing pipeline** while making it modular
+
+## Key Functions to Extract
+
+### Data Processing Functions
+- `readFile()` → Create separate readers for each format (PLY, SPLAT, KSPLAT)
+- `writeFile()` → Create separate writers for each output format
+- `combine()` → Keep as utility function for merging multiple datasets
+- `process()` → Core transformation pipeline (already modular)
+
+### API Design Principles
+- **Input**: Accept `DataTable` objects directly instead of file paths
+- **Output**: Return processed `DataTable` objects instead of writing to files
+- **Configuration**: Use options objects instead of command-line arguments
+- **Error Handling**: Throw meaningful errors instead of calling `exit()`
+
+## Module Structure
+
+```typescript
+// Core processing functions
+export { process } from './process';
+export { combine } from './utils/combine';
+
+// Readers
+export { readPly } from './readers/read-ply';
+export { readSplat } from './readers/read-splat';
+export { readKsplat } from './readers/read-ksplat';
+
+// Writers
+export { writePly } from './writers/write-ply';
+export { writeCompressedPly } from './writers/write-compressed-ply';
+export { writeCsv } from './writers/write-csv';
+export { writeSogs } from './writers/write-sogs';
+
+// Utilities
+export { DataTable, Column } from './data-table';
+export { isGSDataTable } from './utils/validation';
+```
+
+## Conversion Checklist
+
+- [ ] Extract `readFile()` logic into separate reader modules
+- [ ] Extract `writeFile()` logic into separate writer modules  
+- [ ] Remove `parseArguments()` and CLI argument handling
+- [ ] Remove `main()` function and CLI entry point
+- [ ] Remove `exit()` calls and replace with proper error handling
+- [ ] Remove console.log statements or make them optional
+- [ ] Update `package.json` to remove `bin` entry and add proper exports
+- [ ] Create TypeScript interfaces for all public APIs
+- [ ] Add JSDoc comments for all exported functions
+- [ ] Update README with module usage examples
+
+## Example Usage Pattern
+
+```typescript
+import { readPly, process, writePly, DataTable } from '@playcanvas/splat-transform';
+
+// Read data
+const dataTable = await readPly(fileHandle);
+
+// Process with transformations
+const processed = process(dataTable, [
+  { kind: 'scale', value: 0.5 },
+  { kind: 'translate', value: new Vec3(0, 0, 10) }
+]);
+
+// Write output
+await writePly(outputFile, {
+  comments: [],
+  elements: [{ name: 'vertex', dataTable: processed }]
+});
+```
+
+## File References
+@src/index.ts
+@bin/cli.mjs
+@package.json
