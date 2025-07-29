@@ -4,12 +4,12 @@ import { FileHandle } from 'node:fs/promises';
 import { Column, DataTable } from '../data-table';
 
 type PlyProperty = {
-    name: string;               // 'x', f_dc_0', etc
-    type: string;               // 'float', 'char', etc
+    name: string; // 'x', f_dc_0', etc
+    type: string; // 'float', 'char', etc
 };
 
 type PlyElement = {
-    name: string;               // 'vertex', etc
+    name: string; // 'vertex', etc
     count: number;
     properties: PlyProperty[];
 };
@@ -22,22 +22,31 @@ type PlyHeader = {
 type PlyData = {
     comments: string[];
     elements: {
-        name: string,
-        dataTable: DataTable
+        name: string;
+        dataTable: DataTable;
     }[];
 };
 
 const getDataType = (type: string) => {
     switch (type) {
-        case 'char': return Int8Array;
-        case 'uchar': return Uint8Array;
-        case 'short': return Int16Array;
-        case 'ushort': return Uint16Array;
-        case 'int': return Int32Array;
-        case 'uint': return Uint32Array;
-        case 'float': return Float32Array;
-        case 'double': return Float64Array;
-        default: return null;
+        case 'char':
+            return Int8Array;
+        case 'uchar':
+            return Uint8Array;
+        case 'short':
+            return Int16Array;
+        case 'ushort':
+            return Uint16Array;
+        case 'int':
+            return Int32Array;
+        case 'uint':
+            return Uint32Array;
+        case 'float':
+            return Float32Array;
+        case 'double':
+            return Float64Array;
+        default:
+            return null;
     }
 };
 
@@ -46,9 +55,9 @@ const getDataType = (type: string) => {
 const parseHeader = (data: Buffer): PlyHeader => {
     // decode header and split into lines
     const strings = new TextDecoder('ascii')
-    .decode(data)
-    .split('\n')
-    .filter(line => line);
+        .decode(data)
+        .split('\n')
+        .filter(line => line);
 
     const elements: PlyElement[] = [];
     const comments: string[] = [];
@@ -72,7 +81,7 @@ const parseHeader = (data: Buffer): PlyHeader => {
                 element = {
                     name: words[1],
                     count: parseInt(words[2], 10),
-                    properties: []
+                    properties: [],
                 };
                 elements.push(element);
                 break;
@@ -83,7 +92,7 @@ const parseHeader = (data: Buffer): PlyHeader => {
                 }
                 element.properties.push({
                     name: words[2],
-                    type: words[1]
+                    type: words[1],
                 });
                 break;
             }
@@ -105,11 +114,10 @@ const cmp = (a: Uint8Array, b: Uint8Array, aOffset = 0) => {
     return true;
 };
 
-const magicBytes = new Uint8Array([112, 108, 121, 10]);                                                 // ply\n
-const endHeaderBytes = new Uint8Array([10, 101, 110, 100, 95, 104, 101, 97, 100, 101, 114, 10]);        // \nend_header\n
+const magicBytes = new Uint8Array([112, 108, 121, 10]); // ply\n
+const endHeaderBytes = new Uint8Array([10, 101, 110, 100, 95, 104, 101, 97, 100, 101, 114, 10]); // \nend_header\n
 
 const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
-
     // we don't support ply text header larger than 128k
     const headerBuf = Buffer.alloc(128 * 1024);
 
@@ -145,7 +153,7 @@ const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
     for (let i = 0; i < header.elements.length; ++i) {
         const element = header.elements[i];
 
-        const columns = element.properties.map((property) => {
+        const columns = element.properties.map(property => {
             return new Column(property.name, new (getDataType(property.type))(element.count));
         });
 
@@ -180,13 +188,13 @@ const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
 
         elements.push({
             name: element.name,
-            dataTable: new DataTable(columns)
+            dataTable: new DataTable(columns),
         });
     }
 
     return {
         comments: header.comments,
-        elements
+        elements,
     };
 };
 

@@ -6,8 +6,8 @@ import { Column, DataTable } from '../data-table';
 type SplatData = {
     comments: string[];
     elements: {
-        name: string,
-        dataTable: DataTable
+        name: string;
+        dataTable: DataTable;
     }[];
 };
 
@@ -50,7 +50,7 @@ const readSplat = async (fileHandle: FileHandle): Promise<SplatData> => {
         new Column('rot_0', new Float32Array(numSplats)),
         new Column('rot_1', new Float32Array(numSplats)),
         new Column('rot_2', new Float32Array(numSplats)),
-        new Column('rot_3', new Float32Array(numSplats))
+        new Column('rot_3', new Float32Array(numSplats)),
     ];
 
     // Read data in chunks
@@ -113,7 +113,9 @@ const readSplat = async (fileHandle: FileHandle): Promise<SplatData> => {
             // Store opacity (convert from uint8 to float and apply inverse sigmoid)
             const epsilon = 1e-6;
             const normalizedOpacity = Math.max(epsilon, Math.min(1.0 - epsilon, opacity / 255.0));
-            (columns[9].data as Float32Array)[splatIndex] = Math.log(normalizedOpacity / (1.0 - normalizedOpacity));
+            (columns[9].data as Float32Array)[splatIndex] = Math.log(
+                normalizedOpacity / (1.0 - normalizedOpacity)
+            );
 
             // Store rotation quaternion (convert from uint8 [0,255] to float [-1,1] and normalize)
             const rot0Norm = (rot0 / 255.0) * 2.0 - 1.0;
@@ -122,7 +124,12 @@ const readSplat = async (fileHandle: FileHandle): Promise<SplatData> => {
             const rot3Norm = (rot3 / 255.0) * 2.0 - 1.0;
 
             // Normalize quaternion
-            const length = Math.sqrt(rot0Norm * rot0Norm + rot1Norm * rot1Norm + rot2Norm * rot2Norm + rot3Norm * rot3Norm);
+            const length = Math.sqrt(
+                rot0Norm * rot0Norm +
+                    rot1Norm * rot1Norm +
+                    rot2Norm * rot2Norm +
+                    rot3Norm * rot3Norm
+            );
             if (length > 0) {
                 (columns[10].data as Float32Array)[splatIndex] = rot0Norm / length;
                 (columns[11].data as Float32Array)[splatIndex] = rot1Norm / length;
@@ -140,10 +147,12 @@ const readSplat = async (fileHandle: FileHandle): Promise<SplatData> => {
 
     return {
         comments: [],
-        elements: [{
-            name: 'vertex',
-            dataTable: new DataTable(columns)
-        }]
+        elements: [
+            {
+                name: 'vertex',
+                dataTable: new DataTable(columns),
+            },
+        ],
     };
 };
 

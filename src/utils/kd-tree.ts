@@ -39,7 +39,7 @@ class KdTree {
         const recurse = (node: KdTreeNode, depth: number) => {
             const axis = depth % numColumns;
             const distance = point[axis] - centroids.columns[axis].data[node.index];
-            const next = (distance > 0) ? node.right : node.left;
+            const next = distance > 0 ? node.right : node.left;
 
             cnt++;
 
@@ -77,14 +77,14 @@ class KdTree {
 
         if (indices.length === 1) {
             return {
-                index: indices[0]
+                index: indices[0],
             };
         } else if (indices.length === 2) {
             return {
                 index: indices[0],
                 right: {
-                    index: indices[1]
-                }
+                    index: indices[1],
+                },
             };
         }
 
@@ -94,7 +94,7 @@ class KdTree {
         return {
             index: indices[mid],
             left,
-            right
+            right,
         };
     }
 }

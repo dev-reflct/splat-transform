@@ -2,20 +2,19 @@ import { DataTable } from './data-table.js';
 
 // sort the compressed indices into morton order
 const generateOrdering = (dataTable: DataTable) => {
-
     const cx = dataTable.getColumnByName('x').data;
     const cy = dataTable.getColumnByName('y').data;
     const cz = dataTable.getColumnByName('z').data;
 
     const generate = (indices: Uint32Array) => {
         // https://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/
-        const encodeMorton3 = (x: number, y: number, z: number) : number => {
+        const encodeMorton3 = (x: number, y: number, z: number): number => {
             const Part1By2 = (x: number) => {
                 x &= 0x000003ff;
                 x = (x ^ (x << 16)) & 0xff0000ff;
-                x = (x ^ (x <<  8)) & 0x0300f00f;
-                x = (x ^ (x <<  4)) & 0x030c30c3;
-                x = (x ^ (x <<  2)) & 0x09249249;
+                x = (x ^ (x << 8)) & 0x0300f00f;
+                x = (x ^ (x << 4)) & 0x030c30c3;
+                x = (x ^ (x << 2)) & 0x09249249;
                 return x;
             };
 
@@ -41,9 +40,12 @@ const generateOrdering = (dataTable: DataTable) => {
                 my = My = y;
                 mz = Mz = z;
             } else {
-                if (x < mx) mx = x; else if (x > Mx) Mx = x;
-                if (y < my) my = y; else if (y > My) My = y;
-                if (z < mz) mz = z; else if (z > Mz) Mz = z;
+                if (x < mx) mx = x;
+                else if (x > Mx) Mx = x;
+                if (y < my) my = y;
+                else if (y > My) My = y;
+                if (z < mz) mz = z;
+                else if (z > Mz) Mz = z;
             }
         }
 

@@ -23,7 +23,7 @@ import {
     AppBase,
     AppOptions,
     Texture,
-    WebgpuGraphicsDevice
+    WebgpuGraphicsDevice,
 } from 'playcanvas/debug';
 import { create, globals } from 'webgpu';
 
@@ -33,9 +33,9 @@ const jsdomSetup = () => {
     const html = '<!DOCTYPE html><html><head></head><body></body></html>';
 
     const jsdom = new JSDOM(html, {
-        resources: 'usable',         // Allow the engine to load assets
-        runScripts: 'dangerously',   // Allow the engine to run scripts
-        url: 'http://localhost:3000' // Set the URL of the document
+        resources: 'usable', // Allow the engine to load assets
+        runScripts: 'dangerously', // Allow the engine to run scripts
+        url: 'http://localhost:3000', // Set the URL of the document
     });
 
     // Copy the window and document to global scope
@@ -67,7 +67,7 @@ class Application extends AppBase {
             GSplatComponentSystem,
             LightComponentSystem,
             RenderComponentSystem,
-            ScriptComponentSystem
+            ScriptComponentSystem,
         ];
 
         appOptions.resourceHandlers = [
@@ -78,7 +78,7 @@ class Application extends AppBase {
             CubemapHandler,
             GSplatHandler,
             RenderHandler,
-            TextureHandler
+            TextureHandler,
         ];
 
         this.init(appOptions);
@@ -112,7 +112,7 @@ const createDevice = async () => {
     const graphicsDevice = new WebgpuGraphicsDevice(canvas, {
         antialias: false,
         depth: true,
-        stencil: false
+        stencil: false,
     });
 
     await graphicsDevice.createDevice();
@@ -126,7 +126,7 @@ const createDevice = async () => {
         height: 512,
         name: 'WebgpuInternalBackbuffer',
         mipmaps: false,
-        format: PIXELFORMAT_BGRA8
+        format: PIXELFORMAT_BGRA8,
     });
 
     // @ts-ignore

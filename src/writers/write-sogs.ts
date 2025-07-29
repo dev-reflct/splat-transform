@@ -8,7 +8,6 @@ import { createDevice } from '../gpu/gpu-device';
 import { generateOrdering } from '../ordering';
 import { kmeans } from '../utils/k-means';
 
-
 const shNames = new Array(45).fill('').map((_, i) => `f_rest_${i}`);
 
 const calcMinMax = (dataTable: DataTable, columnNames: string[]) => {
@@ -51,8 +50,13 @@ const identity = (index: number, width: number) => {
     return index;
 };
 
-const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFilename: string, shIterations = 10, shMethod: 'cpu' | 'gpu') => {
-
+const writeSogs = async (
+    fileHandle: FileHandle,
+    dataTable: DataTable,
+    outputFilename: string,
+    shIterations = 10,
+    shMethod: 'cpu' | 'gpu'
+) => {
     // generate an optimal ordering
     const sortIndices = generateOrdering(dataTable);
 
@@ -65,8 +69,8 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
         const pathname = resolve(dirname(outputFilename), filename);
         console.log(`writing '${pathname}'...`);
         return sharp(data, { raw: { width: w, height: h, channels } })
-        .webp({ lossless: true })
-        .toFile(pathname);
+            .webp({ lossless: true })
+            .toFile(pathname);
     };
 
     // the layout function determines how the data is packed into the output texture.
@@ -83,9 +87,15 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
     for (let i = 0; i < dataTable.numRows; ++i) {
         dataTable.getRow(sortIndices[i], row, meansColumns);
 
-        const x = 65535 * (logTransform(row.x) - meansMinMax[0][0]) / (meansMinMax[0][1] - meansMinMax[0][0]);
-        const y = 65535 * (logTransform(row.y) - meansMinMax[1][0]) / (meansMinMax[1][1] - meansMinMax[1][0]);
-        const z = 65535 * (logTransform(row.z) - meansMinMax[2][0]) / (meansMinMax[2][1] - meansMinMax[2][0]);
+        const x =
+            (65535 * (logTransform(row.x) - meansMinMax[0][0])) /
+            (meansMinMax[0][1] - meansMinMax[0][0]);
+        const y =
+            (65535 * (logTransform(row.y) - meansMinMax[1][0])) /
+            (meansMinMax[1][1] - meansMinMax[1][0]);
+        const z =
+            (65535 * (logTransform(row.z) - meansMinMax[2][0])) /
+            (meansMinMax[2][1] - meansMinMax[2][0]);
 
         const ti = layout(i, width);
 
@@ -142,12 +152,12 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
             [1, 2, 3],
             [0, 2, 3],
             [0, 1, 3],
-            [0, 1, 2]
+            [0, 1, 2],
         ][maxComp];
 
         const ti = layout(i, width);
 
-        quats[ti * 4]     = 255 * (q[idx[0]] * 0.5 + 0.5);
+        quats[ti * 4] = 255 * (q[idx[0]] * 0.5 + 0.5);
         quats[ti * 4 + 1] = 255 * (q[idx[1]] * 0.5 + 0.5);
         quats[ti * 4 + 2] = 255 * (q[idx[2]] * 0.5 + 0.5);
         quats[ti * 4 + 3] = 252 + maxComp;
@@ -164,9 +174,12 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
 
         const ti = layout(i, width);
 
-        scales[ti * 4]     = 255 * (row.scale_0 - scaleMinMax[0][0]) / (scaleMinMax[0][1] - scaleMinMax[0][0]);
-        scales[ti * 4 + 1] = 255 * (row.scale_1 - scaleMinMax[1][0]) / (scaleMinMax[1][1] - scaleMinMax[1][0]);
-        scales[ti * 4 + 2] = 255 * (row.scale_2 - scaleMinMax[2][0]) / (scaleMinMax[2][1] - scaleMinMax[2][0]);
+        scales[ti * 4] =
+            (255 * (row.scale_0 - scaleMinMax[0][0])) / (scaleMinMax[0][1] - scaleMinMax[0][0]);
+        scales[ti * 4 + 1] =
+            (255 * (row.scale_1 - scaleMinMax[1][0])) / (scaleMinMax[1][1] - scaleMinMax[1][0]);
+        scales[ti * 4 + 2] =
+            (255 * (row.scale_2 - scaleMinMax[2][0])) / (scaleMinMax[2][1] - scaleMinMax[2][0]);
         scales[ti * 4 + 3] = 0xff;
     }
     await write('scales.webp', scales);
@@ -181,10 +194,13 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
 
         const ti = layout(i, width);
 
-        sh0[ti * 4]     = 255 * (row.f_dc_0 - sh0MinMax[0][0]) / (sh0MinMax[0][1] - sh0MinMax[0][0]);
-        sh0[ti * 4 + 1] = 255 * (row.f_dc_1 - sh0MinMax[1][0]) / (sh0MinMax[1][1] - sh0MinMax[1][0]);
-        sh0[ti * 4 + 2] = 255 * (row.f_dc_2 - sh0MinMax[2][0]) / (sh0MinMax[2][1] - sh0MinMax[2][0]);
-        sh0[ti * 4 + 3] = 255 * (row.opacity - sh0MinMax[3][0]) / (sh0MinMax[3][1] - sh0MinMax[3][0]);
+        sh0[ti * 4] = (255 * (row.f_dc_0 - sh0MinMax[0][0])) / (sh0MinMax[0][1] - sh0MinMax[0][0]);
+        sh0[ti * 4 + 1] =
+            (255 * (row.f_dc_1 - sh0MinMax[1][0])) / (sh0MinMax[1][1] - sh0MinMax[1][0]);
+        sh0[ti * 4 + 2] =
+            (255 * (row.f_dc_2 - sh0MinMax[2][0])) / (sh0MinMax[2][1] - sh0MinMax[2][0]);
+        sh0[ti * 4 + 3] =
+            (255 * (row.opacity - sh0MinMax[3][0])) / (sh0MinMax[3][1] - sh0MinMax[3][0]);
     }
     await write('sh0.webp', sh0);
 
@@ -195,35 +211,33 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
             dtype: 'float32',
             mins: meansMinMax.map(v => v[0]),
             maxs: meansMinMax.map(v => v[1]),
-            files: [
-                'means_l.webp',
-                'means_u.webp'
-            ]
+            files: ['means_l.webp', 'means_u.webp'],
         },
         scales: {
             shape: [numRows, 3],
             dtype: 'float32',
             mins: scaleMinMax.map(v => v[0]),
             maxs: scaleMinMax.map(v => v[1]),
-            files: ['scales.webp']
+            files: ['scales.webp'],
         },
         quats: {
             shape: [numRows, 4],
             dtype: 'uint8',
             encoding: 'quaternion_packed',
-            files: ['quats.webp']
+            files: ['quats.webp'],
         },
         sh0: {
             shape: [numRows, 1, 4],
             dtype: 'float32',
             mins: sh0MinMax.map(v => v[0]),
             maxs: sh0MinMax.map(v => v[1]),
-            files: ['sh0.webp']
-        }
+            files: ['sh0.webp'],
+        },
     };
 
     // spherical harmonics
-    const shBands = { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
+    const shBands =
+        { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
 
     // @ts-ignore
     if (shBands > 0) {
@@ -234,14 +248,22 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
         // create a table with just spherical harmonics data
         const shDataTable = new DataTable(shColumns);
 
-        const paletteSize = Math.min(64, 2 ** Math.floor(Math.log2(dataTable.numRows / 1024))) * 1024;
+        const paletteSize =
+            Math.min(64, 2 ** Math.floor(Math.log2(dataTable.numRows / 1024))) * 1024;
 
         // calculate kmeans
         const gpuDevice = shMethod === 'gpu' ? await createDevice() : null;
-        const { centroids, labels } = await kmeans(shDataTable, paletteSize, shIterations, gpuDevice);
+        const { centroids, labels } = await kmeans(
+            shDataTable,
+            paletteSize,
+            shIterations,
+            gpuDevice
+        );
 
         // write centroids
-        const centroidsBuf = new Uint8Array(64 * shCoeffs * Math.ceil(centroids.numRows / 64) * channels);
+        const centroidsBuf = new Uint8Array(
+            64 * shCoeffs * Math.ceil(centroids.numRows / 64) * channels
+        );
         const centroidsMinMax = calcMinMax(shDataTable, shColumnNames);
         const centroidsMin = centroidsMinMax.map(v => v[0]).reduce((a, b) => Math.min(a, b));
         const centroidsMax = centroidsMinMax.map(v => v[1]).reduce((a, b) => Math.max(a, b));
@@ -254,13 +276,21 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
                 const y = centroidsRow[shColumnNames[shCoeffs * 1 + j]];
                 const z = centroidsRow[shColumnNames[shCoeffs * 2 + j]];
 
-                centroidsBuf[i * shCoeffs * 4 + j * 4 + 0] = 255 * ((x - centroidsMin) / (centroidsMax - centroidsMin));
-                centroidsBuf[i * shCoeffs * 4 + j * 4 + 1] = 255 * ((y - centroidsMin) / (centroidsMax - centroidsMin));
-                centroidsBuf[i * shCoeffs * 4 + j * 4 + 2] = 255 * ((z - centroidsMin) / (centroidsMax - centroidsMin));
+                centroidsBuf[i * shCoeffs * 4 + j * 4 + 0] =
+                    255 * ((x - centroidsMin) / (centroidsMax - centroidsMin));
+                centroidsBuf[i * shCoeffs * 4 + j * 4 + 1] =
+                    255 * ((y - centroidsMin) / (centroidsMax - centroidsMin));
+                centroidsBuf[i * shCoeffs * 4 + j * 4 + 2] =
+                    255 * ((z - centroidsMin) / (centroidsMax - centroidsMin));
                 centroidsBuf[i * shCoeffs * 4 + j * 4 + 3] = 0xff;
             }
         }
-        await write('shN_centroids.webp', centroidsBuf, 64 * shCoeffs, Math.ceil(centroids.numRows / 64));
+        await write(
+            'shN_centroids.webp',
+            centroidsBuf,
+            64 * shCoeffs,
+            Math.ceil(centroids.numRows / 64)
+        );
 
         // write labels
         const labelsBuf = new Uint8Array(width * height * channels);
@@ -281,14 +311,11 @@ const writeSogs = async (fileHandle: FileHandle, dataTable: DataTable, outputFil
             mins: centroidsMin,
             maxs: centroidsMax,
             quantization: 8,
-            files: [
-                'shN_centroids.webp',
-                'shN_labels.webp'
-            ]
+            files: ['shN_centroids.webp', 'shN_labels.webp'],
         };
     }
 
-    await fileHandle.write((new TextEncoder()).encode(JSON.stringify(meta, null, 4)));
+    await fileHandle.write(new TextEncoder().encode(JSON.stringify(meta, null, 4)));
 };
 
 export { writeSogs };

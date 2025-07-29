@@ -4,14 +4,22 @@ import { PlyData } from '../readers/read-ply';
 
 const columnTypeToPlyType = (type: string): string => {
     switch (type) {
-        case 'float32': return 'float';
-        case 'float64': return 'double';
-        case 'int8': return 'char';
-        case 'uint8': return 'uchar';
-        case 'int16': return 'short';
-        case 'uint16': return 'ushort';
-        case 'int32': return 'int';
-        case 'uint32': return 'uint';
+        case 'float32':
+            return 'float';
+        case 'float64':
+            return 'double';
+        case 'int8':
+            return 'char';
+        case 'uint8':
+            return 'uchar';
+        case 'int16':
+            return 'short';
+        case 'uint16':
+            return 'ushort';
+        case 'int32':
+            return 'int';
+        case 'uint32':
+            return 'uint';
     }
 };
 
@@ -20,19 +28,19 @@ const writePly = async (fileHandle: FileHandle, plyData: PlyData) => {
         'ply',
         'format binary_little_endian 1.0',
         plyData.comments.map(c => `comment ${c}`),
-        plyData.elements.map((element) => {
+        plyData.elements.map(element => {
             return [
                 `element ${element.name} ${element.dataTable.numRows}`,
-                element.dataTable.columns.map((column) => {
+                element.dataTable.columns.map(column => {
                     return `property ${columnTypeToPlyType(column.dataType)} ${column.name}`;
-                })
+                }),
             ];
         }),
-        'end_header'
+        'end_header',
     ];
 
     // write the header
-    await fileHandle.write((new TextEncoder()).encode(`${header.flat(3).join('\n')}\n`));
+    await fileHandle.write(new TextEncoder().encode(`${header.flat(3).join('\n')}\n`));
 
     for (let i = 0; i < plyData.elements.length; ++i) {
         const table = plyData.elements[i].dataTable;

@@ -10,7 +10,7 @@ type Translate = {
 
 type Rotate = {
     kind: 'rotate';
-    value: Vec3;        // euler angles in degrees
+    value: Vec3; // euler angles in degrees
 };
 
 type Scale = {
@@ -50,11 +50,16 @@ const process = (dataTable: DataTable, processActions: ProcessAction[]) => {
                 transform(result, processAction.value, Quat.IDENTITY, 1);
                 break;
             case 'rotate':
-                transform(result, Vec3.ZERO, new Quat().setFromEulerAngles(
-                    processAction.value.x,
-                    processAction.value.y,
-                    processAction.value.z
-                ), 1);
+                transform(
+                    result,
+                    Vec3.ZERO,
+                    new Quat().setFromEulerAngles(
+                        processAction.value.x,
+                        processAction.value.y,
+                        processAction.value.z
+                    ),
+                    1
+                );
                 break;
             case 'scale':
                 transform(result, Vec3.ZERO, Quat.IDENTITY, processAction.value);
@@ -74,19 +79,21 @@ const process = (dataTable: DataTable, processActions: ProcessAction[]) => {
             case 'filterByValue': {
                 const { columnName, comparator, value } = processAction;
                 const Predicates = {
-                    'lt': (rowIndex: number, row: any) => row[columnName] < value,
-                    'lte': (rowIndex: number, row: any) => row[columnName] <= value,
-                    'gt': (rowIndex: number, row: any) => row[columnName] > value,
-                    'gte': (rowIndex: number, row: any) => row[columnName] >= value,
-                    'eq': (rowIndex: number, row: any) => row[columnName] === value,
-                    'neq': (rowIndex: number, row: any) => row[columnName] !== value
+                    lt: (rowIndex: number, row: any) => row[columnName] < value,
+                    lte: (rowIndex: number, row: any) => row[columnName] <= value,
+                    gt: (rowIndex: number, row: any) => row[columnName] > value,
+                    gte: (rowIndex: number, row: any) => row[columnName] >= value,
+                    eq: (rowIndex: number, row: any) => row[columnName] === value,
+                    neq: (rowIndex: number, row: any) => row[columnName] !== value,
                 };
                 const predicate = Predicates[comparator] ?? ((rowIndex: number, row: any) => true);
                 result = result.filter(predicate);
                 break;
             }
             case 'filterBands': {
-                const inputBands = { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
+                const inputBands =
+                    { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ??
+                    0;
                 const outputBands = processAction.value;
 
                 if (outputBands < inputBands) {
@@ -97,18 +104,22 @@ const process = (dataTable: DataTable, processActions: ProcessAction[]) => {
                     for (let i = 0; i < inputCoeffs; ++i) {
                         for (let j = 0; j < 3; ++j) {
                             const inputName = `f_rest_${i + j * inputCoeffs}`;
-                            map[inputName] = i < outputCoeffs ? `f_rest_${i + j * outputCoeffs}` : null;
+                            map[inputName] =
+                                i < outputCoeffs ? `f_rest_${i + j * outputCoeffs}` : null;
                         }
                     }
 
-                    result = new DataTable(result.columns.map((column) => {
-                        if (map.hasOwnProperty(column.name)) {
-                            const name = map[column.name];
-                            return name ? new Column(name, column.data) : null;
-                        }
-                        return column;
-
-                    }).filter(c => c !== null));
+                    result = new DataTable(
+                        result.columns
+                            .map(column => {
+                                if (map.hasOwnProperty(column.name)) {
+                                    const name = map[column.name];
+                                    return name ? new Column(name, column.data) : null;
+                                }
+                                return column;
+                            })
+                            .filter(c => c !== null)
+                    );
                 }
                 break;
             }

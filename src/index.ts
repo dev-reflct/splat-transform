@@ -17,11 +17,11 @@ import { writePly } from './writers/write-ply';
 import { writeSogs } from './writers/write-sogs';
 
 type Options = {
-    overwrite: boolean,
-    help: boolean,
-    version: boolean,
-    gpu: boolean,
-    iterations: number
+    overwrite: boolean;
+    help: boolean;
+    version: boolean;
+    gpu: boolean;
+    iterations: number;
 };
 
 const readFile = async (filename: string) => {
@@ -63,7 +63,6 @@ const getOutputFormat = (filename: string) => {
 };
 
 const writeFile = async (filename: string, dataTable: DataTable, options: Options) => {
-
     const outputFormat = getOutputFormat(filename);
 
     // open the output file
@@ -88,7 +87,13 @@ const writeFile = async (filename: string, dataTable: DataTable, options: Option
             await writeCsv(outputFile, dataTable);
             break;
         case 'json':
-            await writeSogs(outputFile, dataTable, filename, options.iterations, options.gpu ? 'gpu' : 'cpu');
+            await writeSogs(
+                outputFile,
+                dataTable,
+                filename,
+                options.iterations,
+                options.gpu ? 'gpu' : 'cpu'
+            );
             break;
         case 'compressed-ply':
             await writeCompressedPly(outputFile, dataTable);
@@ -96,10 +101,12 @@ const writeFile = async (filename: string, dataTable: DataTable, options: Option
         case 'ply':
             await writePly(outputFile, {
                 comments: [],
-                elements: [{
-                    name: 'vertex',
-                    dataTable: dataTable
-                }]
+                elements: [
+                    {
+                        name: 'vertex',
+                        dataTable: dataTable,
+                    },
+                ],
             });
             break;
     }
@@ -117,8 +124,7 @@ const combine = (dataTables: DataTable[]) => {
 
     const findMatchingColumn = (columns: Column[], column: Column) => {
         for (let i = 0; i < columns.length; ++i) {
-            if (columns[i].name === column.name &&
-                columns[i].dataType === column.dataType) {
+            if (columns[i].name === column.name && columns[i].dataType === column.dataType) {
                 return columns[i];
             }
         }
@@ -140,7 +146,7 @@ const combine = (dataTables: DataTable[]) => {
     const totalRows = dataTables.reduce((sum, dataTable) => sum + dataTable.numRows, 0);
 
     // construct output dataTable
-    const resultColumns = columns.map((column) => {
+    const resultColumns = columns.map(column => {
         const constructor = column.data.constructor as new (length: number) => TypedArray;
         return new Column(column.name, new constructor(totalRows));
     });
@@ -164,13 +170,24 @@ const combine = (dataTables: DataTable[]) => {
 };
 
 const isGSDataTable = (dataTable: DataTable) => {
-    if (![
-        'x', 'y', 'z',
-        'rot_0', 'rot_1', 'rot_2', 'rot_3',
-        'scale_0', 'scale_1', 'scale_2',
-        'f_dc_0', 'f_dc_1', 'f_dc_2',
-        'opacity'
-    ].every(c => dataTable.hasColumn(c))) {
+    if (
+        ![
+            'x',
+            'y',
+            'z',
+            'rot_0',
+            'rot_1',
+            'rot_2',
+            'rot_3',
+            'scale_0',
+            'scale_1',
+            'scale_2',
+            'f_dc_0',
+            'f_dc_1',
+            'f_dc_2',
+            'opacity',
+        ].every(c => dataTable.hasColumn(c))
+    ) {
         return false;
     }
     return true;
@@ -200,8 +217,8 @@ const parseArguments = () => {
             scale: { type: 'string', short: 's', multiple: true },
             filterNaN: { type: 'boolean', short: 'n', multiple: true },
             filterByValue: { type: 'string', short: 'c', multiple: true },
-            filterBands: { type: 'string', short: 'b', multiple: true }
-        }
+            filterBands: { type: 'string', short: 'b', multiple: true },
+        },
     });
 
     const parseNumber = (value: string): number => {
@@ -230,12 +247,18 @@ const parseArguments = () => {
 
     const parseComparator = (value: string): 'lt' | 'lte' | 'gt' | 'gte' | 'eq' | 'neq' => {
         switch (value) {
-            case 'lt': return 'lt';
-            case 'lte': return 'lte';
-            case 'gt': return 'gt';
-            case 'gte': return 'gte';
-            case 'eq': return 'eq';
-            case 'neq': return 'neq';
+            case 'lt':
+                return 'lt';
+            case 'lte':
+                return 'lte';
+            case 'gt':
+                return 'gt';
+            case 'gte':
+                return 'gte';
+            case 'eq':
+                return 'eq';
+            case 'neq':
+                return 'neq';
             default:
                 throw new Error(`Invalid comparator value: ${value}`);
         }
@@ -247,14 +270,14 @@ const parseArguments = () => {
         help: v.help ?? false,
         version: v.version ?? false,
         gpu: !(v['no-gpu'] ?? false),
-        iterations: parseInteger(v.iterations ?? '10')
+        iterations: parseInteger(v.iterations ?? '10'),
     };
 
     for (const t of tokens) {
         if (t.kind === 'positional') {
             files.push({
                 filename: t.value,
-                processActions: []
+                processActions: [],
             });
         } else if (t.kind === 'option' && files.length > 0) {
             const current = files[files.length - 1];
@@ -262,24 +285,24 @@ const parseArguments = () => {
                 case 'translate':
                     current.processActions.push({
                         kind: 'translate',
-                        value: parseVec3(t.value)
+                        value: parseVec3(t.value),
                     });
                     break;
                 case 'rotate':
                     current.processActions.push({
                         kind: 'rotate',
-                        value: parseVec3(t.value)
+                        value: parseVec3(t.value),
                     });
                     break;
                 case 'scale':
                     current.processActions.push({
                         kind: 'scale',
-                        value: parseNumber(t.value)
+                        value: parseNumber(t.value),
                     });
                     break;
                 case 'filterNaN':
                     current.processActions.push({
-                        kind: 'filterNaN'
+                        kind: 'filterNaN',
                     });
                     break;
                 case 'filterByValue': {
@@ -291,18 +314,20 @@ const parseArguments = () => {
                         kind: 'filterByValue',
                         columnName: parts[0],
                         comparator: parseComparator(parts[1]),
-                        value: parseNumber(parts[2])
+                        value: parseNumber(parts[2]),
                     });
                     break;
                 }
                 case 'filterBands': {
                     const shBands = parseNumber(t.value);
                     if (![0, 1, 2, 3].includes(shBands)) {
-                        throw new Error(`Invalid filterBands value: ${t.value}. Must be 0, 1, 2, or 3.`);
+                        throw new Error(
+                            `Invalid filterBands value: ${t.value}. Must be 0, 1, 2, or 3.`
+                        );
                     }
                     current.processActions.push({
                         kind: 'filterBands',
-                        value: shBands as 0 | 1 | 2 | 3
+                        value: shBands as 0 | 1 | 2 | 3,
                     });
 
                     break;
@@ -380,25 +405,29 @@ const main = async () => {
 
     try {
         // read, filter, process input files
-        const inputFiles = (await Promise.all(inputArgs.map(async (inputArg) => {
-            const file = await readFile(resolve(inputArg.filename));
+        const inputFiles = (
+            await Promise.all(
+                inputArgs.map(async inputArg => {
+                    const file = await readFile(resolve(inputArg.filename));
 
-            // filter out non-gs data
-            if (file.elements.length !== 1 || file.elements[0].name !== 'vertex') {
-                throw new Error(`Unsupported data in file '${inputArg.filename}'`);
-            }
+                    // filter out non-gs data
+                    if (file.elements.length !== 1 || file.elements[0].name !== 'vertex') {
+                        throw new Error(`Unsupported data in file '${inputArg.filename}'`);
+                    }
 
-            const element = file.elements[0];
+                    const element = file.elements[0];
 
-            const { dataTable } = element;
-            if (dataTable.numRows === 0 || !isGSDataTable(dataTable)) {
-                throw new Error(`Unsupported data in file '${inputArg.filename}'`);
-            }
+                    const { dataTable } = element;
+                    if (dataTable.numRows === 0 || !isGSDataTable(dataTable)) {
+                        throw new Error(`Unsupported data in file '${inputArg.filename}'`);
+                    }
 
-            element.dataTable = process(dataTable, inputArg.processActions);
+                    element.dataTable = process(dataTable, inputArg.processActions);
 
-            return file;
-        }))).filter(file => file !== null);
+                    return file;
+                })
+            )
+        ).filter(file => file !== null);
 
         // combine inputs into a single output dataTable
         const dataTable = process(

@@ -6,8 +6,8 @@ import { Column, DataTable } from '../data-table';
 type KsplatFileData = {
     comments: string[];
     elements: {
-        name: string,
-        dataTable: DataTable
+        name: string;
+        dataTable: DataTable;
     }[];
 };
 
@@ -70,7 +70,7 @@ const COMPRESSION_MODES: CompressionConfig[] = [
         rotationStartByte: 24,
         colorStartByte: 40,
         harmonicsStartByte: 44,
-        scaleQuantRange: 1
+        scaleQuantRange: 1,
     },
     {
         centerBytes: 6,
@@ -82,7 +82,7 @@ const COMPRESSION_MODES: CompressionConfig[] = [
         rotationStartByte: 12,
         colorStartByte: 20,
         harmonicsStartByte: 24,
-        scaleQuantRange: 32767
+        scaleQuantRange: 32767,
     },
     {
         centerBytes: 6,
@@ -94,8 +94,8 @@ const COMPRESSION_MODES: CompressionConfig[] = [
         rotationStartByte: 12,
         colorStartByte: 20,
         harmonicsStartByte: 24,
-        scaleQuantRange: 32767
-    }
+        scaleQuantRange: 32767,
+    },
 ];
 
 const HARMONICS_COMPONENT_COUNT = [0, 9, 24, 45];
@@ -143,7 +143,11 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
     let maxHarmonicsDegree = 0;
     for (let sectionIdx = 0; sectionIdx < maxSections; sectionIdx++) {
         const sectionHeaderOffset = MAIN_HEADER_SIZE + sectionIdx * SECTION_HEADER_SIZE;
-        const sectionHeader = new DataView(fileBuffer.buffer, fileBuffer.byteOffset + sectionHeaderOffset, SECTION_HEADER_SIZE);
+        const sectionHeader = new DataView(
+            fileBuffer.buffer,
+            fileBuffer.byteOffset + sectionHeaderOffset,
+            SECTION_HEADER_SIZE
+        );
 
         const sectionSplatCount = sectionHeader.getUint32(0, true);
         if (sectionSplatCount === 0) continue; // Skip empty sections
@@ -167,7 +171,7 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
         new Column('rot_0', new Float32Array(numSplats)),
         new Column('rot_1', new Float32Array(numSplats)),
         new Column('rot_2', new Float32Array(numSplats)),
-        new Column('rot_3', new Float32Array(numSplats))
+        new Column('rot_3', new Float32Array(numSplats)),
     ];
 
     // Add spherical harmonics columns based on maximum degree found
@@ -186,7 +190,7 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
         rotationStartByte,
         colorStartByte,
         harmonicsStartByte,
-        scaleQuantRange
+        scaleQuantRange,
     } = COMPRESSION_MODES[compressionMode];
 
     let currentSectionDataOffset = MAIN_HEADER_SIZE + maxSections * SECTION_HEADER_SIZE;
@@ -195,7 +199,11 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
     // Process each section
     for (let sectionIdx = 0; sectionIdx < maxSections; sectionIdx++) {
         const sectionHeaderOffset = MAIN_HEADER_SIZE + sectionIdx * SECTION_HEADER_SIZE;
-        const sectionHeader = new DataView(fileBuffer.buffer, fileBuffer.byteOffset + sectionHeaderOffset, SECTION_HEADER_SIZE);
+        const sectionHeader = new DataView(
+            fileBuffer.buffer,
+            fileBuffer.byteOffset + sectionHeaderOffset,
+            SECTION_HEADER_SIZE
+        );
 
         const sectionSplatCount = sectionHeader.getUint32(0, true);
         const maxSectionSplats = sectionHeader.getUint32(4, true);
@@ -213,8 +221,12 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
         const partialBucketMetaSize = partialBuckets * 4;
         const totalBucketStorageSize = bucketStorageSize * bucketCount + partialBucketMetaSize;
         const harmonicsComponentCount = HARMONICS_COMPONENT_COUNT[harmonicsDegree];
-        const bytesPerSplat = centerBytes + scaleBytes + rotationBytes +
-                             colorBytes + harmonicsComponentCount * harmonicsBytes;
+        const bytesPerSplat =
+            centerBytes +
+            scaleBytes +
+            rotationBytes +
+            colorBytes +
+            harmonicsComponentCount * harmonicsBytes;
         const sectionDataSize = bytesPerSplat * maxSectionSplats;
 
         // Calculate decompression parameters
@@ -222,14 +234,26 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
 
         // Get bucket centers
         const bucketCentersOffset = currentSectionDataOffset + partialBucketMetaSize;
-        const bucketCenters = new Float32Array(fileBuffer.buffer, fileBuffer.byteOffset + bucketCentersOffset, bucketCount * 3);
+        const bucketCenters = new Float32Array(
+            fileBuffer.buffer,
+            fileBuffer.byteOffset + bucketCentersOffset,
+            bucketCount * 3
+        );
 
         // Get partial bucket sizes
-        const partialBucketSizes = new Uint32Array(fileBuffer.buffer, fileBuffer.byteOffset + currentSectionDataOffset, partialBuckets);
+        const partialBucketSizes = new Uint32Array(
+            fileBuffer.buffer,
+            fileBuffer.byteOffset + currentSectionDataOffset,
+            partialBuckets
+        );
 
         // Get splat data
         const splatDataOffset = currentSectionDataOffset + totalBucketStorageSize;
-        const splatData = new DataView(fileBuffer.buffer, fileBuffer.byteOffset + splatDataOffset, sectionDataSize);
+        const splatData = new DataView(
+            fileBuffer.buffer,
+            fileBuffer.byteOffset + splatDataOffset,
+            sectionDataSize
+        );
 
         // Harmonic value decoder
         const decodeHarmonics = (offset: number, component: number): number => {
@@ -237,9 +261,12 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
                 case 0:
                     return splatData.getFloat32(offset + harmonicsStartByte + component * 4, true);
                 case 1:
-                    return decodeFloat16(splatData.getUint16(offset + harmonicsStartByte + component * 2, true));
+                    return decodeFloat16(
+                        splatData.getUint16(offset + harmonicsStartByte + component * 2, true)
+                    );
                 case 2: {
-                    const normalized = splatData.getUint8(offset + harmonicsStartByte + component) / 255;
+                    const normalized =
+                        splatData.getUint8(offset + harmonicsStartByte + component) / 255;
                     return minHarmonicsValue + normalized * (maxHarmonicsValue - minHarmonicsValue);
                 }
                 default:
@@ -275,9 +302,18 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
                 y = splatData.getFloat32(splatByteOffset + 4, true);
                 z = splatData.getFloat32(splatByteOffset + 8, true);
             } else {
-                x = (splatData.getUint16(splatByteOffset, true) - quantizationRange) * positionScale + bucketCenters[bucketIdx * 3];
-                y = (splatData.getUint16(splatByteOffset + 2, true) - quantizationRange) * positionScale + bucketCenters[bucketIdx * 3 + 1];
-                z = (splatData.getUint16(splatByteOffset + 4, true) - quantizationRange) * positionScale + bucketCenters[bucketIdx * 3 + 2];
+                x =
+                    (splatData.getUint16(splatByteOffset, true) - quantizationRange) *
+                        positionScale +
+                    bucketCenters[bucketIdx * 3];
+                y =
+                    (splatData.getUint16(splatByteOffset + 2, true) - quantizationRange) *
+                        positionScale +
+                    bucketCenters[bucketIdx * 3 + 1];
+                z =
+                    (splatData.getUint16(splatByteOffset + 4, true) - quantizationRange) *
+                        positionScale +
+                    bucketCenters[bucketIdx * 3 + 2];
             }
 
             // Decode scales
@@ -288,8 +324,12 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
                 scaleZ = splatData.getFloat32(splatByteOffset + scaleStartByte + 8, true);
             } else {
                 scaleX = decodeFloat16(splatData.getUint16(splatByteOffset + scaleStartByte, true));
-                scaleY = decodeFloat16(splatData.getUint16(splatByteOffset + scaleStartByte + 2, true));
-                scaleZ = decodeFloat16(splatData.getUint16(splatByteOffset + scaleStartByte + 4, true));
+                scaleY = decodeFloat16(
+                    splatData.getUint16(splatByteOffset + scaleStartByte + 2, true)
+                );
+                scaleZ = decodeFloat16(
+                    splatData.getUint16(splatByteOffset + scaleStartByte + 4, true)
+                );
             }
 
             // Decode rotation quaternion
@@ -300,10 +340,18 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
                 rot2 = splatData.getFloat32(splatByteOffset + rotationStartByte + 8, true);
                 rot3 = splatData.getFloat32(splatByteOffset + rotationStartByte + 12, true);
             } else {
-                rot0 = decodeFloat16(splatData.getUint16(splatByteOffset + rotationStartByte, true));
-                rot1 = decodeFloat16(splatData.getUint16(splatByteOffset + rotationStartByte + 2, true));
-                rot2 = decodeFloat16(splatData.getUint16(splatByteOffset + rotationStartByte + 4, true));
-                rot3 = decodeFloat16(splatData.getUint16(splatByteOffset + rotationStartByte + 6, true));
+                rot0 = decodeFloat16(
+                    splatData.getUint16(splatByteOffset + rotationStartByte, true)
+                );
+                rot1 = decodeFloat16(
+                    splatData.getUint16(splatByteOffset + rotationStartByte + 2, true)
+                );
+                rot2 = decodeFloat16(
+                    splatData.getUint16(splatByteOffset + rotationStartByte + 4, true)
+                );
+                rot3 = decodeFloat16(
+                    splatData.getUint16(splatByteOffset + rotationStartByte + 6, true)
+                );
             }
 
             // Decode color and opacity
@@ -331,7 +379,9 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
             // Store opacity (convert from uint8 to float and apply inverse sigmoid)
             const epsilon = 1e-6;
             const normalizedOpacity = Math.max(epsilon, Math.min(1.0 - epsilon, opacity / 255.0));
-            (columns[9].data as Float32Array)[splatIndex] = Math.log(normalizedOpacity / (1.0 - normalizedOpacity));
+            (columns[9].data as Float32Array)[splatIndex] = Math.log(
+                normalizedOpacity / (1.0 - normalizedOpacity)
+            );
 
             // Store quaternion
             (columns[10].data as Float32Array)[splatIndex] = rot0;
@@ -350,16 +400,19 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
                     coeff = i % 3;
                 } else if (i < 24) {
                     channel = Math.floor((i - 9) / 5);
-                    coeff = (i - 9) % 5 + 3;
+                    coeff = ((i - 9) % 5) + 3;
                 } else {
                     // don't think 3 bands are supported, but here just in case
                     channel = Math.floor((i - 24) / 7);
-                    coeff = (i - 24) % 7 + 8;
+                    coeff = ((i - 24) % 7) + 8;
                 }
 
                 const col = channel * (harmonicsComponentCount / 3) + coeff;
 
-                (columns[14 + col].data as Float32Array)[splatIndex] = decodeHarmonics(splatByteOffset, i);
+                (columns[14 + col].data as Float32Array)[splatIndex] = decodeHarmonics(
+                    splatByteOffset,
+                    i
+                );
             }
 
             splatIndex++;
@@ -376,10 +429,12 @@ const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
 
     return {
         comments: [],
-        elements: [{
-            name: 'vertex',
-            dataTable: resultTable
-        }]
+        elements: [
+            {
+                name: 'vertex',
+                dataTable: resultTable,
+            },
+        ],
     };
 };
 

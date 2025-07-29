@@ -9,15 +9,20 @@ import {
     FloatPacking,
     Shader,
     StorageBuffer,
-    WebgpuGraphicsDevice
+    WebgpuGraphicsDevice,
 } from 'playcanvas/debug';
 
 import { DataTable } from '../data-table.js';
 import { GpuDevice } from './gpu-device.js';
 
-const clusterWgsl = (numColumns: number, numPoints: number, numCentroids: number, useF16: boolean) => {
+const clusterWgsl = (
+    numColumns: number,
+    numPoints: number,
+    numCentroids: number,
+    useF16: boolean
+) => {
     const floatType = useF16 ? 'f16' : 'f32';
-    
+
     return `
 ${useF16 ? 'enable f16;' : ''}
 
@@ -123,16 +128,16 @@ const interleaveData = (dataTable: DataTable, useF16: boolean) => {
             }
         }
         return result;
-    } else {
-        const result = new Float32Array(numColumns * numRows);
-        for (let c = 0; c < numColumns; ++c) {
-            const column = dataTable.columns[c];
-            for (let r = 0; r < numRows; ++r) {
-                result[r * numColumns + c] = column.data[r];
-            }
-        }
-        return result;
     }
+
+    const result = new Float32Array(numColumns * numRows);
+    for (let c = 0; c < numColumns; ++c) {
+        const column = dataTable.columns[c];
+        for (let r = 0; r < numRows; ++r) {
+            result[r * numColumns + c] = column.data[r];
+        }
+    }
+    return result;
 };
 
 class GpuCluster {
@@ -149,7 +154,7 @@ class GpuCluster {
         const bindGroupFormat = new BindGroupFormat(device, [
             new BindStorageBufferFormat('pointsBuffer', SHADERSTAGE_COMPUTE, true),
             new BindStorageBufferFormat('centroidsBuffer', SHADERSTAGE_COMPUTE, true),
-            new BindStorageBufferFormat('resultsBuffer', SHADERSTAGE_COMPUTE)
+            new BindStorageBufferFormat('resultsBuffer', SHADERSTAGE_COMPUTE),
         ]);
 
         const numPoints = points.numRows;
@@ -160,7 +165,7 @@ class GpuCluster {
             shaderLanguage: SHADERLANGUAGE_WGSL,
             cshader: clusterWgsl(numColumns, numPoints, numCentroids, useF16),
             // @ts-ignore
-            computeBindGroupFormat: bindGroupFormat
+            computeBindGroupFormat: bindGroupFormat,
         });
 
         const compute = new Compute(device, shader, 'compute-cluster');
@@ -213,7 +218,13 @@ class GpuCluster {
             // await resultsBuffer.read(0, undefined, labels, true);
 
             // use internal read function until immediate flag is available (see https://github.com/playcanvas/engine/pull/7843)
-            await (device as WebgpuGraphicsDevice).readStorageBuffer(resultsBuffer.impl, 0, resultsBuffer.byteSize, labels, true);
+            await (device as WebgpuGraphicsDevice).readStorageBuffer(
+                resultsBuffer.impl,
+                0,
+                resultsBuffer.byteSize,
+                labels,
+                true
+            );
         };
 
         this.destroy = () => {

@@ -3,7 +3,6 @@ import { FileHandle } from 'node:fs/promises';
 import { DataTable } from '../data-table';
 
 const writeCsv = async (fileHandle: FileHandle, dataTable: DataTable) => {
-
     const len = dataTable.numRows;
 
     // write header
