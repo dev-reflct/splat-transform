@@ -1,7 +1,40 @@
-import { Buffer } from 'node:buffer';
-import { FileHandle } from 'node:fs/promises';
+// Remove Node.js imports and replace with browser-compatible alternatives
+// import { Buffer } from 'node:buffer';
+// import { FileHandle } from 'node:fs/promises';
 
 import { Column, DataTable } from '../data-table';
+
+// Browser-compatible Buffer replacement
+const createBuffer = (size: number): Uint8Array => new Uint8Array(size);
+
+// Browser-compatible FileHandle interface
+interface BrowserFileHandle {
+    read: (buffer: Uint8Array, offset: number, length: number) => Promise<{ bytesRead: number }>;
+    close: () => Promise<void>;
+}
+
+// Create a browser FileHandle from a File object
+const createBrowserFileHandle = async (file: File): Promise<BrowserFileHandle> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let position = 0;
+
+    return {
+        read: (buffer: Uint8Array, offset: number, length: number) => {
+            const bytesToRead = Math.min(length, uint8Array.length - position);
+            if (bytesToRead <= 0) {
+                return Promise.resolve({ bytesRead: 0 });
+            }
+
+            buffer.set(uint8Array.subarray(position, position + bytesToRead), offset);
+            position += bytesToRead;
+            return Promise.resolve({ bytesRead: bytesToRead });
+        },
+        close: async () => {
+            // No-op for browser
+        },
+    };
+};
 
 type KsplatFileData = {
     comments: string[];
@@ -100,13 +133,13 @@ const COMPRESSION_MODES: CompressionConfig[] = [
 
 const HARMONICS_COMPONENT_COUNT = [0, 9, 24, 45];
 
-const readKsplat = async (fileHandle: FileHandle): Promise<KsplatFileData> => {
-    const stats = await fileHandle.stat();
-    const totalSize = stats.size;
+const readKsplat = async (file: File): Promise<KsplatFileData> => {
+    const fileHandle = await createBrowserFileHandle(file);
+    const arrayBuffer = await file.arrayBuffer();
+    const totalSize = arrayBuffer.byteLength;
 
     // Load complete file
-    const fileBuffer = Buffer.alloc(totalSize);
-    await fileHandle.read(fileBuffer, 0, totalSize, 0);
+    const fileBuffer = new Uint8Array(arrayBuffer);
 
     const MAIN_HEADER_SIZE = 4096;
     const SECTION_HEADER_SIZE = 1024;

@@ -1,10 +1,4 @@
-import { FileHandle, open } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-
-import sharp from 'sharp';
-
 import { DataTable } from '../data-table';
-import { createDevice } from '../gpu/gpu-device';
 import { generateOrdering } from '../ordering';
 import { kmeans } from '../utils/k-means';
 
@@ -50,14 +44,73 @@ const identity = (index: number, width: number) => {
     return index;
 };
 
+// Browser-compatible WebP conversion using Canvas API
+const createWebPFromImageData = (
+    imageData: Uint8Array,
+    width: number,
+    height: number
+): Promise<Uint8Array> => {
+    // Create a canvas element
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+        throw new Error('Could not get 2D context from canvas');
+    }
+
+    // Create ImageData from the raw pixel data
+    const imgData = new ImageData(new Uint8ClampedArray(imageData), width, height);
+
+    // Put the image data on the canvas
+    ctx.putImageData(imgData, 0, 0);
+
+    // Convert to WebP blob
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            blob => {
+                if (blob) {
+                    blob.arrayBuffer().then(buffer => {
+                        resolve(new Uint8Array(buffer));
+                    });
+                } else {
+                    reject(new Error('Failed to create WebP blob'));
+                }
+            },
+            'image/webp',
+            1.0 // Quality
+        );
+    });
+};
+
+// Browser-compatible file writing function that returns WebP data
+const writeWebPFile = (
+    filename: string,
+    data: Uint8Array,
+    width: number,
+    height: number
+): Promise<Uint8Array> => {
+    console.log(`creating '${filename}'...`);
+    return createWebPFromImageData(data, width, height).then(webpData => {
+        console.log(`created '${filename}' (${webpData.length} bytes)`);
+        return webpData;
+    });
+};
+
+interface SogsResult {
+    meta: any;
+    files: { [filename: string]: Uint8Array };
+}
+
 const writeSogs = async (
-    fileHandle: FileHandle,
     dataTable: DataTable,
-    outputFilename: string,
-    shIterations = 10,
-    shMethod: 'cpu' | 'gpu'
-) => {
+    shIterations = 3 // Further reduced for much faster processing
+): Promise<SogsResult> => {
+    console.log('🔄 Starting SOGS export...');
+
     // generate an optimal ordering
+    console.log('📊 Generating optimal ordering...');
     const sortIndices = generateOrdering(dataTable);
 
     const numRows = dataTable.numRows;
@@ -65,12 +118,9 @@ const writeSogs = async (
     const height = Math.ceil(numRows / width / 16) * 16;
     const channels = 4;
 
-    const write = (filename: string, data: Uint8Array, w = width, h = height) => {
-        const pathname = resolve(dirname(outputFilename), filename);
-        console.log(`writing '${pathname}'...`);
-        return sharp(data, { raw: { width: w, height: h, channels } })
-            .webp({ lossless: true })
-            .toFile(pathname);
+    const write = async (filename: string, data: Uint8Array, w = width, h = height) => {
+        console.log(`🖼️ Creating ${filename}...`);
+        return await writeWebPFile(filename, data, w, h);
     };
 
     // the layout function determines how the data is packed into the output texture.
@@ -109,8 +159,8 @@ const writeSogs = async (
         meansU[ti * 4 + 2] = (z >> 8) & 0xff;
         meansU[ti * 4 + 3] = 0xff;
     }
-    await write('means_l.webp', meansL);
-    await write('means_u.webp', meansU);
+    const meansLWebp = await write('means_l.webp', meansL);
+    const meansUWebp = await write('means_u.webp', meansU);
 
     // convert quaternions
     const quats = new Uint8Array(width * height * channels);
@@ -162,7 +212,7 @@ const writeSogs = async (
         quats[ti * 4 + 2] = 255 * (q[idx[2]] * 0.5 + 0.5);
         quats[ti * 4 + 3] = 252 + maxComp;
     }
-    await write('quats.webp', quats);
+    const quatsWebp = await write('quats.webp', quats);
 
     // scales
     const scales = new Uint8Array(width * height * channels);
@@ -182,7 +232,7 @@ const writeSogs = async (
             (255 * (row.scale_2 - scaleMinMax[2][0])) / (scaleMinMax[2][1] - scaleMinMax[2][0]);
         scales[ti * 4 + 3] = 0xff;
     }
-    await write('scales.webp', scales);
+    const scalesWebp = await write('scales.webp', scales);
 
     // colors
     const sh0 = new Uint8Array(width * height * channels);
@@ -202,7 +252,7 @@ const writeSogs = async (
         sh0[ti * 4 + 3] =
             (255 * (row.opacity - sh0MinMax[3][0])) / (sh0MinMax[3][1] - sh0MinMax[3][0]);
     }
-    await write('sh0.webp', sh0);
+    const sh0Webp = await write('sh0.webp', sh0);
 
     // write meta.json
     const meta: any = {
@@ -249,16 +299,13 @@ const writeSogs = async (
         const shDataTable = new DataTable(shColumns);
 
         const paletteSize =
-            Math.min(64, 2 ** Math.floor(Math.log2(dataTable.numRows / 1024))) * 1024;
+            Math.min(8, 2 ** Math.floor(Math.log2(dataTable.numRows / 8192))) * 1024; // Aggressively reduced for maximum speed
 
-        // calculate kmeans
-        const gpuDevice = shMethod === 'gpu' ? await createDevice() : null;
-        const { centroids, labels } = await kmeans(
-            shDataTable,
-            paletteSize,
-            shIterations,
-            gpuDevice
+        // calculate kmeans (GPU if available, otherwise CPU)
+        console.log(
+            `🎯 Running k-means clustering with ${paletteSize} clusters and ${shIterations} iterations...`
         );
+        const { centroids, labels } = await kmeans(shDataTable, paletteSize, shIterations);
 
         // write centroids
         const centroidsBuf = new Uint8Array(
@@ -285,7 +332,7 @@ const writeSogs = async (
                 centroidsBuf[i * shCoeffs * 4 + j * 4 + 3] = 0xff;
             }
         }
-        await write(
+        const centroidsWebp = await write(
             'shN_centroids.webp',
             centroidsBuf,
             64 * shCoeffs,
@@ -303,7 +350,7 @@ const writeSogs = async (
             labelsBuf[ti * 4 + 2] = 0;
             labelsBuf[ti * 4 + 3] = 0xff;
         }
-        await write('shN_labels.webp', labelsBuf);
+        const labelsWebp = await write('shN_labels.webp', labelsBuf);
 
         meta.shN = {
             shape: [dataTable.numRows, shCoeffs],
@@ -313,9 +360,33 @@ const writeSogs = async (
             quantization: 8,
             files: ['shN_centroids.webp', 'shN_labels.webp'],
         };
+
+        return {
+            meta,
+            files: {
+                'means_l.webp': meansLWebp,
+                'means_u.webp': meansUWebp,
+                'quats.webp': quatsWebp,
+                'scales.webp': scalesWebp,
+                'sh0.webp': sh0Webp,
+                'shN_centroids.webp': centroidsWebp,
+                'shN_labels.webp': labelsWebp,
+                'meta.json': new TextEncoder().encode(JSON.stringify(meta, null, 4)),
+            },
+        };
     }
 
-    await fileHandle.write(new TextEncoder().encode(JSON.stringify(meta, null, 4)));
+    return {
+        meta,
+        files: {
+            'means_l.webp': meansLWebp,
+            'means_u.webp': meansUWebp,
+            'quats.webp': quatsWebp,
+            'scales.webp': scalesWebp,
+            'sh0.webp': sh0Webp,
+            'meta.json': new TextEncoder().encode(JSON.stringify(meta, null, 4)),
+        },
+    };
 };
 
 export { writeSogs };

@@ -1,7 +1,40 @@
-import { Buffer } from 'node:buffer';
-import { FileHandle } from 'node:fs/promises';
+// Remove Node.js imports and replace with browser-compatible alternatives
+// import { Buffer } from 'node:buffer';
+// import { FileHandle } from 'node:fs/promises';
 
 import { Column, DataTable } from '../data-table';
+
+// Browser-compatible Buffer replacement
+const createBuffer = (size: number): Uint8Array => new Uint8Array(size);
+
+// Browser-compatible FileHandle interface
+interface BrowserFileHandle {
+    read: (buffer: Uint8Array, offset: number, length: number) => Promise<{ bytesRead: number }>;
+    close: () => Promise<void>;
+}
+
+// Create a browser FileHandle from a File object
+const createBrowserFileHandle = async (file: File): Promise<BrowserFileHandle> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let position = 0;
+
+    return {
+        read: (buffer: Uint8Array, offset: number, length: number) => {
+            const bytesToRead = Math.min(length, uint8Array.length - position);
+            if (bytesToRead <= 0) {
+                return Promise.resolve({ bytesRead: 0 });
+            }
+
+            buffer.set(uint8Array.subarray(position, position + bytesToRead), offset);
+            position += bytesToRead;
+            return Promise.resolve({ bytesRead: bytesToRead });
+        },
+        close: async () => {
+            // No-op for browser
+        },
+    };
+};
 
 type PlyProperty = {
     name: string; // 'x', f_dc_0', etc
@@ -52,7 +85,7 @@ const getDataType = (type: string) => {
 
 // parse the ply header text and return an array of Element structures and a
 // string containing the ply format
-const parseHeader = (data: Buffer): PlyHeader => {
+const parseHeader = (data: Uint8Array): PlyHeader => {
     // decode header and split into lines
     const strings = new TextDecoder('ascii')
         .decode(data)
@@ -117,12 +150,14 @@ const cmp = (a: Uint8Array, b: Uint8Array, aOffset = 0) => {
 const magicBytes = new Uint8Array([112, 108, 121, 10]); // ply\n
 const endHeaderBytes = new Uint8Array([10, 101, 110, 100, 95, 104, 101, 97, 100, 101, 114, 10]); // \nend_header\n
 
-const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
+const readPly = async (file: File): Promise<PlyData> => {
     // we don't support ply text header larger than 128k
-    const headerBuf = Buffer.alloc(128 * 1024);
+    const headerBuf = createBuffer(128 * 1024);
 
     // smallest possible header size
     let headerSize = magicBytes.length + endHeaderBytes.length;
+
+    const fileHandle = await createBrowserFileHandle(file);
 
     if ((await fileHandle.read(headerBuf, 0, headerSize)).bytesRead !== headerSize) {
         throw new Error('failed to read file header');
@@ -164,7 +199,7 @@ const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
         // read data in chunks of 1024 rows at a time
         const chunkSize = 1024;
         const numChunks = Math.ceil(element.count / chunkSize);
-        const chunkData = Buffer.alloc(chunkSize * rowSize);
+        const chunkData = createBuffer(chunkSize * rowSize);
 
         for (let c = 0; c < numChunks; ++c) {
             const numRows = Math.min(chunkSize, element.count - c * chunkSize);
@@ -180,7 +215,7 @@ const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
                 // copy into column data
                 for (let p = 0; p < columns.length; ++p) {
                     const s = sizes[p];
-                    chunkData.copy(buffers[p], rowOffset * s, offset, offset + s);
+                    buffers[p].set(chunkData.subarray(offset, offset + s), rowOffset * s);
                     offset += s;
                 }
             }
