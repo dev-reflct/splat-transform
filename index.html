@@ -270,25 +270,27 @@
 
                     const result = await processGaussianSplatWeb(selectedFile, options);
 
+                    console.log(result);
+
                     updateProgress(90);
 
                     // Handle different output formats
-                    if (result.outputFormat === 'json' && result.outputData.format === 'sogs') {
+                    if (result.outputFormat === 'json') {
                         // SOGS format returns multiple files
                         const files = result.outputData.files;
                         const meta = result.outputData.meta;
 
                         // Create a zip-like structure or download individual files
                         for (const [filename, data] of Object.entries(files)) {
+                            const isJson = filename.endsWith('.json');
+
                             const blob = new Blob([data], {
-                                type: filename.endsWith('.json')
-                                    ? 'application/json'
-                                    : 'image/webp',
+                                type: isJson ? 'application/json' : 'image/webp',
                             });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = filename;
+                            a.download = isJson ? `${result.outputFilename}.${filename}` : filename;
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);

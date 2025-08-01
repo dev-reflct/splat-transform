@@ -283,6 +283,8 @@ const kmeans = (points: DataTable, k: number, iterations: number) => {
     );
 
     while (!converged) {
+        console.time(`clusterUltraFastCpu-${steps}`);
+
         // Copy current labels for convergence check
         prevLabels.set(labels);
 
@@ -310,7 +312,7 @@ const kmeans = (points: DataTable, k: number, iterations: number) => {
             calcAverage(points, groups[i], row);
             centroids.setRow(i, row);
         }
-
+        console.timeEnd(`clusterUltraFastCpu-${steps}`);
         steps++;
 
         if (steps >= iterations) {

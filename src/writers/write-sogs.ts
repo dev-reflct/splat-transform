@@ -105,9 +105,11 @@ interface SogsResult {
 
 const writeSogs = async (
     dataTable: DataTable,
-    shIterations = 3 // Further reduced for much faster processing
+    shIterations = 3, // Further reduced for much faster processing
+    shMethod: 'cpu' | 'gpu' = 'cpu' // Force CPU mode for browser compatibility
 ): Promise<SogsResult> => {
     console.log('🔄 Starting SOGS export...');
+    console.time('writeSogs');
 
     // generate an optimal ordering
     console.log('📊 Generating optimal ordering...');
@@ -128,6 +130,7 @@ const writeSogs = async (
 
     const row: any = {};
 
+    console.time('means');
     // convert position/means
     const meansL = new Uint8Array(width * height * channels);
     const meansU = new Uint8Array(width * height * channels);
@@ -162,6 +165,9 @@ const writeSogs = async (
     const meansLWebp = await write('means_l.webp', meansL);
     const meansUWebp = await write('means_u.webp', meansU);
 
+    console.timeEnd('means');
+
+    console.time('quats');
     // convert quaternions
     const quats = new Uint8Array(width * height * channels);
     const quatNames = ['rot_0', 'rot_1', 'rot_2', 'rot_3'];
@@ -214,6 +220,9 @@ const writeSogs = async (
     }
     const quatsWebp = await write('quats.webp', quats);
 
+    console.timeEnd('quats');
+
+    console.time('scales');
     // scales
     const scales = new Uint8Array(width * height * channels);
     const scaleNames = ['scale_0', 'scale_1', 'scale_2'];
@@ -234,6 +243,10 @@ const writeSogs = async (
     }
     const scalesWebp = await write('scales.webp', scales);
 
+    console.timeEnd('scales');
+
+    console.time('sh0');
+
     // colors
     const sh0 = new Uint8Array(width * height * channels);
     const sh0Names = ['f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity'];
@@ -253,6 +266,8 @@ const writeSogs = async (
             (255 * (row.opacity - sh0MinMax[3][0])) / (sh0MinMax[3][1] - sh0MinMax[3][0]);
     }
     const sh0Webp = await write('sh0.webp', sh0);
+
+    console.timeEnd('sh0');
 
     // write meta.json
     const meta: any = {
@@ -285,6 +300,8 @@ const writeSogs = async (
         },
     };
 
+    console.time('sh1');
+
     // spherical harmonics
     const shBands =
         { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
@@ -305,7 +322,16 @@ const writeSogs = async (
         console.log(
             `🎯 Running k-means clustering with ${paletteSize} clusters and ${shIterations} iterations...`
         );
-        const { centroids, labels } = await kmeans(shDataTable, paletteSize, shIterations);
+
+        console.time('kmeans');
+        const { centroids, labels } = await kmeans(
+            shDataTable,
+            paletteSize,
+            shIterations,
+            shMethod
+        );
+
+        console.timeEnd('kmeans');
 
         // write centroids
         const centroidsBuf = new Uint8Array(
@@ -375,6 +401,9 @@ const writeSogs = async (
             },
         };
     }
+
+    console.timeEnd('sh1');
+    console.timeEnd('writeSogs');
 
     return {
         meta,
