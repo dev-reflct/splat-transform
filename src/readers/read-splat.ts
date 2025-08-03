@@ -18,29 +18,36 @@ const BYTES_PER_SPLAT = 32;
 export const readSplatFromBuffer = async (buffer: ArrayBuffer): Promise<SplatData> => {
     const data = new Uint8Array(buffer);
 
-    if (data.length < 4) {
-        throw new Error('File too small to be a valid .splat file');
+    // Check file size
+    if (data.length % BYTES_PER_SPLAT !== 0) {
+        throw new Error('Invalid .splat file: file size is not a multiple of 32 bytes');
     }
 
-    // Read number of splats (4 bytes, little-endian)
-    const numSplats = new DataView(buffer).getUint32(0, true);
+    const numSplats = data.length / BYTES_PER_SPLAT;
 
-    if (data.length !== 4 + numSplats * BYTES_PER_SPLAT) {
-        throw new Error('File size does not match expected size for .splat file');
+    if (numSplats === 0) {
+        throw new Error('Invalid .splat file: file is empty');
     }
 
-    // Create columns for all the data we need to store
+    // Create columns for the standard Gaussian splat data
     const columns = [
+        // Position
         new Column('x', new Float32Array(numSplats)),
         new Column('y', new Float32Array(numSplats)),
         new Column('z', new Float32Array(numSplats)),
+
+        // Scale (stored as linear in .splat, convert to log for internal use)
         new Column('scale_0', new Float32Array(numSplats)),
         new Column('scale_1', new Float32Array(numSplats)),
         new Column('scale_2', new Float32Array(numSplats)),
-        new Column('f_dc_0', new Float32Array(numSplats)),
-        new Column('f_dc_1', new Float32Array(numSplats)),
-        new Column('f_dc_2', new Float32Array(numSplats)),
+
+        // Color/opacity
+        new Column('f_dc_0', new Float32Array(numSplats)), // Red
+        new Column('f_dc_1', new Float32Array(numSplats)), // Green
+        new Column('f_dc_2', new Float32Array(numSplats)), // Blue
         new Column('opacity', new Float32Array(numSplats)),
+
+        // Rotation quaternion
         new Column('rot_0', new Float32Array(numSplats)),
         new Column('rot_1', new Float32Array(numSplats)),
         new Column('rot_2', new Float32Array(numSplats)),
@@ -55,17 +62,14 @@ export const readSplatFromBuffer = async (buffer: ArrayBuffer): Promise<SplatDat
     for (let c = 0; c < numChunks; ++c) {
         const numRows = Math.min(chunkSize, numSplats - c * chunkSize);
         const bytesToRead = numRows * BYTES_PER_SPLAT;
+        const chunkOffset = c * chunkSize * BYTES_PER_SPLAT;
 
-        if (4 + (c * chunkSize + numRows) * BYTES_PER_SPLAT > data.length) {
+        // Copy chunk data from the buffer
+        if (chunkOffset + bytesToRead > data.length) {
             throw new Error('Unexpected end of file while reading .splat data');
         }
 
-        chunkData.set(
-            data.subarray(
-                4 + c * chunkSize * BYTES_PER_SPLAT,
-                4 + c * chunkSize * BYTES_PER_SPLAT + bytesToRead
-            )
-        );
+        chunkData.set(data.subarray(chunkOffset, chunkOffset + bytesToRead));
 
         // Parse each splat in the chunk
         for (let r = 0; r < numRows; ++r) {
@@ -184,10 +188,21 @@ export const readSplatFromFile = async (file: File): Promise<SplatData> => {
     return readSplatFromBuffer(buffer);
 };
 
-// Legacy function for backward compatibility
+/**
+ * Read SPLAT data from a file handle (legacy function for backward compatibility)
+ * @param fileHandle - The file handle to read from
+ * @returns Promise that resolves to SplatData
+ */
 export const readSplat = async (fileHandle: any): Promise<SplatData> => {
-    if (fileHandle instanceof File) {
+    if (fileHandle && typeof fileHandle.read === 'function') {
+        // Node.js file handle
+        const buffer = await fileHandle.readFile();
+        return readSplatFromBuffer(buffer);
+    } else if (fileHandle instanceof File) {
+        // Browser File object
         return readSplatFromFile(fileHandle);
     }
-    throw new Error('Unsupported file handle type');
+    throw new Error(
+        'Unsupported file handle type. Use readSplatFromFile for browser compatibility.'
+    );
 };

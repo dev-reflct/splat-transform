@@ -103,9 +103,6 @@ const HARMONICS_COMPONENT_COUNT = [0, 9, 24, 45];
  * @returns Promise that resolves to KsplatFileData
  */
 export const readKsplatFromBuffer = async (buffer: ArrayBuffer): Promise<KsplatFileData> => {
-    const data = new Uint8Array(buffer);
-    const view = new DataView(buffer);
-
     const MAIN_HEADER_SIZE = 4096;
     const SECTION_HEADER_SIZE = 1024;
 
