@@ -1,39 +1,16 @@
-// Remove Node.js imports and replace with browser-compatible alternatives
-// import { FileHandle } from 'node:fs/promises';
-
 import { DataTable } from '../data-table';
 
-// Browser-compatible FileHandle interface
-interface BrowserFileHandle {
-    write: (data: string | Uint8Array) => Promise<void>;
-    close: () => Promise<void>;
-}
-
-// Create a browser FileHandle for writing to memory
-const createBrowserFileHandle = (): BrowserFileHandle => {
-    const chunks: Uint8Array[] = [];
-
-    return {
-        write: (data: string | Uint8Array) => {
-            if (typeof data === 'string') {
-                const encoder = new TextEncoder();
-                chunks.push(encoder.encode(data));
-            } else {
-                chunks.push(data);
-            }
-            return Promise.resolve();
-        },
-        close: async () => {
-            // No-op for browser
-        },
-    };
-};
-
-const writeCsv = async (fileHandle: BrowserFileHandle, dataTable: DataTable) => {
+/**
+ * Write DataTable to CSV string
+ * @param dataTable - The DataTable to convert to CSV
+ * @returns CSV string
+ */
+export const writeCsvToString = (dataTable: DataTable): string => {
     const len = dataTable.numRows;
+    const lines: string[] = [];
 
     // write header
-    await fileHandle.write(`${dataTable.columnNames.join(',')}\n`);
+    lines.push(dataTable.columnNames.join(','));
 
     const columns = dataTable.columns.map(c => c.data);
 
@@ -44,8 +21,26 @@ const writeCsv = async (fileHandle: BrowserFileHandle, dataTable: DataTable) => 
             if (c) row += ',';
             row += columns[c][i];
         }
-        await fileHandle.write(`${row}\n`);
+        lines.push(row);
     }
+
+    return lines.join('\n');
 };
 
-export { writeCsv };
+/**
+ * Write DataTable to CSV Blob
+ * @param dataTable - The DataTable to convert to CSV
+ * @returns Blob containing CSV data
+ */
+export const writeCsvToBlob = (dataTable: DataTable): Blob => {
+    const csvString = writeCsvToString(dataTable);
+    return new Blob([csvString], { type: 'text/csv' });
+};
+
+// Legacy function for backward compatibility
+export const writeCsv = async (fileHandle: any, dataTable: DataTable): Promise<void> => {
+    if (fileHandle instanceof File) {
+        throw new Error('Cannot write to File object');
+    }
+    throw new Error('Unsupported file handle type');
+};

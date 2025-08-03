@@ -1,22 +1,6 @@
-type TypedArray =
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array;
+type TypedArray = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array;
 
-type ColumnType =
-    | 'int8'
-    | 'uint8'
-    | 'int16'
-    | 'uint16'
-    | 'int32'
-    | 'uint32'
-    | 'float32'
-    | 'float64';
+type ColumnType = 'int8' | 'uint8' | 'int16' | 'uint16' | 'int32' | 'uint32' | 'float32' | 'float64';
 
 class Column {
     name: string;
@@ -29,22 +13,14 @@ class Column {
 
     get dataType(): ColumnType | null {
         switch (this.data.constructor) {
-            case Int8Array:
-                return 'int8';
-            case Uint8Array:
-                return 'uint8';
-            case Int16Array:
-                return 'int16';
-            case Uint16Array:
-                return 'uint16';
-            case Int32Array:
-                return 'int32';
-            case Uint32Array:
-                return 'uint32';
-            case Float32Array:
-                return 'float32';
-            case Float64Array:
-                return 'float64';
+            case Int8Array: return 'int8';
+            case Uint8Array: return 'uint8';
+            case Int16Array: return 'int16';
+            case Uint16Array: return 'uint16';
+            case Int32Array: return 'int32';
+            case Uint32Array: return 'uint32';
+            case Float32Array: return 'float32';
+            case Float64Array: return 'float64';
         }
         return null;
     }
@@ -83,9 +59,7 @@ class DataTable {
         // check all columns have the same lengths
         for (let i = 1; i < columns.length; i++) {
             if (columns[i].data.length !== columns[0].data.length) {
-                throw new Error(
-                    `Column '${columns[i].name}' has inconsistent number of rows: expected ${columns[0].data.length}, got ${columns[i].data.length}`
-                );
+                throw new Error(`Column '${columns[i].name}' has inconsistent number of rows: expected ${columns[0].data.length}, got ${columns[i].data.length}`);
             }
         }
 
@@ -149,9 +123,7 @@ class DataTable {
 
     addColumn(column: Column) {
         if (column.data.length !== this.numRows) {
-            throw new Error(
-                `Column '${column.name}' has inconsistent number of rows: expected ${this.numRows}, got ${column.data.length}`
-            );
+            throw new Error(`Column '${column.name}' has inconsistent number of rows: expected ${this.numRows}, got ${column.data.length}`);
         }
         this.columns.push(column);
     }
@@ -194,5 +166,4 @@ class DataTable {
     }
 }
 
-export { Column, DataTable };
-export type { TypedArray };
+export { Column, DataTable, TypedArray };

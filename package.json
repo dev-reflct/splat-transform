@@ -3,14 +3,15 @@
     "version": "0.5.2",
     "author": "PlayCanvas<support@playcanvas.com>",
     "homepage": "https://playcanvas.com",
-    "description": "Browser-based 3D Gaussian splat format conversion and transformation tool",
+    "description": "Browser-compatible 3D Gaussian splat format conversion and transformation tool",
     "keywords": [
         "3d-gaussian-splatting",
-        "cli",
+        "browser",
         "gaussian-splatting",
         "playcanvas",
         "supersplat",
-        "typescript"
+        "typescript",
+        "web"
     ],
     "license": "MIT",
     "repository": {

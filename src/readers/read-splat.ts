@@ -1,38 +1,6 @@
 import { Column, DataTable } from '../data-table';
 
-// Browser-compatible Buffer replacement
-const createBuffer = (size: number): Uint8Array => new Uint8Array(size);
-
-// Browser-compatible FileHandle interface
-interface BrowserFileHandle {
-    read: (buffer: Uint8Array, offset: number, length: number) => Promise<{ bytesRead: number }>;
-    close: () => Promise<void>;
-}
-
-// Create a browser FileHandle from a File object
-const createBrowserFileHandle = async (file: File): Promise<BrowserFileHandle> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let position = 0;
-
-    return {
-        read: (buffer: Uint8Array, offset: number, length: number) => {
-            const bytesToRead = Math.min(length, uint8Array.length - position);
-            if (bytesToRead <= 0) {
-                return Promise.resolve({ bytesRead: 0 });
-            }
-
-            buffer.set(uint8Array.subarray(position, position + bytesToRead), offset);
-            position += bytesToRead;
-            return Promise.resolve({ bytesRead: bytesToRead });
-        },
-        close: async () => {
-            // No-op for browser
-        },
-    };
-};
-
-type SplatData = {
+export type SplatData = {
     comments: string[];
     elements: {
         name: string;
@@ -40,42 +8,39 @@ type SplatData = {
     }[];
 };
 
-const readSplat = async (file: File): Promise<SplatData> => {
-    const fileHandle = await createBrowserFileHandle(file);
-    const arrayBuffer = await file.arrayBuffer();
-    const fileSize = arrayBuffer.byteLength;
+const BYTES_PER_SPLAT = 32;
 
-    // Each splat is 32 bytes
-    const BYTES_PER_SPLAT = 32;
-    if (fileSize % BYTES_PER_SPLAT !== 0) {
-        throw new Error('Invalid .splat file: file size is not a multiple of 32 bytes');
+/**
+ * Read SPLAT data from an ArrayBuffer
+ * @param buffer - The ArrayBuffer containing SPLAT data
+ * @returns Promise that resolves to SplatData
+ */
+export const readSplatFromBuffer = async (buffer: ArrayBuffer): Promise<SplatData> => {
+    const data = new Uint8Array(buffer);
+
+    if (data.length < 4) {
+        throw new Error('File too small to be a valid .splat file');
     }
 
-    const numSplats = fileSize / BYTES_PER_SPLAT;
+    // Read number of splats (4 bytes, little-endian)
+    const numSplats = new DataView(buffer).getUint32(0, true);
 
-    if (numSplats === 0) {
-        throw new Error('Invalid .splat file: file is empty');
+    if (data.length !== 4 + numSplats * BYTES_PER_SPLAT) {
+        throw new Error('File size does not match expected size for .splat file');
     }
 
-    // Create columns for the standard Gaussian splat data
+    // Create columns for all the data we need to store
     const columns = [
-        // Position
         new Column('x', new Float32Array(numSplats)),
         new Column('y', new Float32Array(numSplats)),
         new Column('z', new Float32Array(numSplats)),
-
-        // Scale (stored as linear in .splat, convert to log for internal use)
         new Column('scale_0', new Float32Array(numSplats)),
         new Column('scale_1', new Float32Array(numSplats)),
         new Column('scale_2', new Float32Array(numSplats)),
-
-        // Color/opacity
-        new Column('f_dc_0', new Float32Array(numSplats)), // Red
-        new Column('f_dc_1', new Float32Array(numSplats)), // Green
-        new Column('f_dc_2', new Float32Array(numSplats)), // Blue
+        new Column('f_dc_0', new Float32Array(numSplats)),
+        new Column('f_dc_1', new Float32Array(numSplats)),
+        new Column('f_dc_2', new Float32Array(numSplats)),
         new Column('opacity', new Float32Array(numSplats)),
-
-        // Rotation quaternion
         new Column('rot_0', new Float32Array(numSplats)),
         new Column('rot_1', new Float32Array(numSplats)),
         new Column('rot_2', new Float32Array(numSplats)),
@@ -85,46 +50,67 @@ const readSplat = async (file: File): Promise<SplatData> => {
     // Read data in chunks
     const chunkSize = 1024;
     const numChunks = Math.ceil(numSplats / chunkSize);
-    const chunkData = createBuffer(chunkSize * BYTES_PER_SPLAT);
+    const chunkData = new Uint8Array(chunkSize * BYTES_PER_SPLAT);
 
     for (let c = 0; c < numChunks; ++c) {
         const numRows = Math.min(chunkSize, numSplats - c * chunkSize);
         const bytesToRead = numRows * BYTES_PER_SPLAT;
 
-        const { bytesRead } = await fileHandle.read(chunkData, 0, bytesToRead);
-        if (bytesRead !== bytesToRead) {
-            throw new Error('Failed to read expected amount of data from .splat file');
+        if (4 + (c * chunkSize + numRows) * BYTES_PER_SPLAT > data.length) {
+            throw new Error('Unexpected end of file while reading .splat data');
         }
+
+        chunkData.set(
+            data.subarray(
+                4 + c * chunkSize * BYTES_PER_SPLAT,
+                4 + c * chunkSize * BYTES_PER_SPLAT + bytesToRead
+            )
+        );
 
         // Parse each splat in the chunk
         for (let r = 0; r < numRows; ++r) {
             const splatIndex = c * chunkSize + r;
             const offset = r * BYTES_PER_SPLAT;
 
-            // Create DataView for reading binary data
-            const dataView = new DataView(chunkData.buffer, chunkData.byteOffset + offset);
-
             // Read position (3 × float32)
-            const x = dataView.getFloat32(0, true); // true = little endian
-            const y = dataView.getFloat32(4, true);
-            const z = dataView.getFloat32(8, true);
+            const x = new DataView(chunkData.buffer, chunkData.byteOffset + offset + 0).getFloat32(
+                0,
+                true
+            );
+            const y = new DataView(chunkData.buffer, chunkData.byteOffset + offset + 4).getFloat32(
+                0,
+                true
+            );
+            const z = new DataView(chunkData.buffer, chunkData.byteOffset + offset + 8).getFloat32(
+                0,
+                true
+            );
 
             // Read scale (3 × float32)
-            const scaleX = dataView.getFloat32(12, true);
-            const scaleY = dataView.getFloat32(16, true);
-            const scaleZ = dataView.getFloat32(20, true);
+            const scaleX = new DataView(
+                chunkData.buffer,
+                chunkData.byteOffset + offset + 12
+            ).getFloat32(0, true);
+            const scaleY = new DataView(
+                chunkData.buffer,
+                chunkData.byteOffset + offset + 16
+            ).getFloat32(0, true);
+            const scaleZ = new DataView(
+                chunkData.buffer,
+                chunkData.byteOffset + offset + 20
+            ).getFloat32(0, true);
 
             // Read color and opacity (4 × uint8)
-            const red = dataView.getUint8(24);
-            const green = dataView.getUint8(25);
-            const blue = dataView.getUint8(26);
-            const opacity = dataView.getUint8(27);
+            const red = chunkData[offset + 24];
+            const green = chunkData[offset + 25];
+            const blue = chunkData[offset + 26];
+            const opacity = chunkData[offset + 27];
 
             // Read rotation quaternion (4 × uint8)
-            const rot0 = dataView.getUint8(28);
-            const rot1 = dataView.getUint8(29);
-            const rot2 = dataView.getUint8(30);
-            const rot3 = dataView.getUint8(31);
+            const rot0 = chunkData[offset + 28];
+            const rot1 = chunkData[offset + 29];
+            const rot2 = chunkData[offset + 30];
+            const rot3 = chunkData[offset + 31];
 
             // Store position
             (columns[0].data as Float32Array)[splatIndex] = x;
@@ -188,4 +174,20 @@ const readSplat = async (file: File): Promise<SplatData> => {
     };
 };
 
-export { SplatData, readSplat };
+/**
+ * Read SPLAT data from a File object
+ * @param file - The File object containing SPLAT data
+ * @returns Promise that resolves to SplatData
+ */
+export const readSplatFromFile = async (file: File): Promise<SplatData> => {
+    const buffer = await file.arrayBuffer();
+    return readSplatFromBuffer(buffer);
+};
+
+// Legacy function for backward compatibility
+export const readSplat = async (fileHandle: any): Promise<SplatData> => {
+    if (fileHandle instanceof File) {
+        return readSplatFromFile(fileHandle);
+    }
+    throw new Error('Unsupported file handle type');
+};

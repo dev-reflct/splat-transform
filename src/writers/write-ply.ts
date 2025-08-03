@@ -1,33 +1,4 @@
-// Remove Node.js imports and replace with browser-compatible alternatives
-// import { FileHandle } from 'node:fs/promises';
-
-import { DataTable } from '../data-table';
-
-// Browser-compatible FileHandle interface
-interface BrowserFileHandle {
-    write: (data: string | Uint8Array) => Promise<void>;
-    close: () => Promise<void>;
-}
-
-// Create a browser FileHandle for writing to memory
-const createBrowserFileHandle = (): BrowserFileHandle => {
-    const chunks: Uint8Array[] = [];
-
-    return {
-        write: (data: string | Uint8Array) => {
-            if (typeof data === 'string') {
-                const encoder = new TextEncoder();
-                chunks.push(encoder.encode(data));
-            } else {
-                chunks.push(data);
-            }
-            return Promise.resolve();
-        },
-        close: async () => {
-            // No-op for browser
-        },
-    };
-};
+import { PlyData } from '../readers/read-ply';
 
 const columnTypeToPlyType = (type: string): string => {
     switch (type) {
@@ -50,15 +21,12 @@ const columnTypeToPlyType = (type: string): string => {
     }
 };
 
-type PlyData = {
-    comments: string[];
-    elements: {
-        name: string;
-        dataTable: DataTable;
-    }[];
-};
-
-const writePly = async (fileHandle: BrowserFileHandle, plyData: PlyData) => {
+/**
+ * Write PLY data to an ArrayBuffer
+ * @param plyData - The PLY data to write
+ * @returns ArrayBuffer containing the PLY data
+ */
+export const writePlyToBuffer = (plyData: PlyData): ArrayBuffer => {
     const header = [
         'ply',
         'format binary_little_endian 1.0',
@@ -74,17 +42,38 @@ const writePly = async (fileHandle: BrowserFileHandle, plyData: PlyData) => {
         'end_header',
     ];
 
-    // write the header
-    await fileHandle.write(new TextEncoder().encode(`${header.flat(3).join('\n')}\n`));
+    // calculate total size
+    let totalSize = 0;
+    const headerText = `${header.flat(3).join('\n')}\n`;
+    totalSize += new TextEncoder().encode(headerText).length;
 
+    for (let i = 0; i < plyData.elements.length; ++i) {
+        const table = plyData.elements[i].dataTable;
+        const columns = table.columns;
+        const sizes = columns.map(c => c.data.BYTES_PER_ELEMENT);
+        const rowSize = sizes.reduce((total, size) => total + size, 0);
+        totalSize += table.numRows * rowSize;
+    }
+
+    // create buffer
+    const buffer = new ArrayBuffer(totalSize);
+    const uint8Array = new Uint8Array(buffer);
+    let offset = 0;
+
+    // write the header
+    const headerBytes = new TextEncoder().encode(headerText);
+    uint8Array.set(headerBytes, offset);
+    offset += headerBytes.length;
+
+    // write the data
     for (let i = 0; i < plyData.elements.length; ++i) {
         const table = plyData.elements[i].dataTable;
         const columns = table.columns;
         const buffers = columns.map(c => new Uint8Array(c.data.buffer));
         const sizes = columns.map(c => c.data.BYTES_PER_ELEMENT);
-        const rowSize = sizes.reduce((total: number, size: number) => total + size, 0);
+        const rowSize = sizes.reduce((total, size) => total + size, 0);
 
-        // write to file in chunks of 1024 rows
+        // write to buffer in chunks of 1024 rows
         const chunkSize = 1024;
         const numChunks = Math.ceil(table.numRows / chunkSize);
         const chunkData = new Uint8Array(chunkSize * rowSize);
@@ -92,22 +81,44 @@ const writePly = async (fileHandle: BrowserFileHandle, plyData: PlyData) => {
         for (let c = 0; c < numChunks; ++c) {
             const numRows = Math.min(chunkSize, table.numRows - c * chunkSize);
 
-            let offset = 0;
+            let chunkOffset = 0;
 
             for (let r = 0; r < numRows; ++r) {
                 const rowOffset = c * chunkSize + r;
 
                 for (let p = 0; p < columns.length; ++p) {
                     const s = sizes[p];
-                    chunkData.set(buffers[p].subarray(rowOffset * s, rowOffset * s + s), offset);
-                    offset += s;
+                    chunkData.set(
+                        buffers[p].subarray(rowOffset * s, rowOffset * s + s),
+                        chunkOffset
+                    );
+                    chunkOffset += s;
                 }
             }
 
             // write the chunk
-            await fileHandle.write(chunkData.subarray(0, offset));
+            uint8Array.set(chunkData.subarray(0, chunkOffset), offset);
+            offset += chunkOffset;
         }
     }
+
+    return buffer;
 };
 
-export { writePly };
+/**
+ * Write PLY data to a Blob
+ * @param plyData - The PLY data to write
+ * @returns Blob containing the PLY data
+ */
+export const writePlyToBlob = (plyData: PlyData): Blob => {
+    const buffer = writePlyToBuffer(plyData);
+    return new Blob([buffer], { type: 'application/octet-stream' });
+};
+
+// Legacy function for backward compatibility
+export const writePly = async (fileHandle: any, plyData: PlyData): Promise<void> => {
+    if (fileHandle instanceof File) {
+        throw new Error('Cannot write to File object');
+    }
+    throw new Error('Unsupported file handle type');
+};

@@ -156,6 +156,7 @@
                 <div class="option-group">
                     <label>Output Format:</label>
                     <select id="outputFormat">
+                        <option value="compressed.ply">Compressed PLY</option>
                         <option value="json">SOGS (JSON)</option>
                         <option value="ply">PLY</option>
                         <option value="csv">CSV</option>
@@ -178,7 +179,16 @@
         </div>
 
         <script type="module">
-            import { processGaussianSplatWeb, Vec3 } from './src/web.ts';
+            import {
+                convertSogs,
+                processDataTable,
+                readPlyFromFile,
+                readSplatFromFile,
+                readKsplatFromFile,
+                writePlyToBlob,
+                writeCompressedPlyToBlob,
+                writeCsvToBlob,
+            } from './src/index.ts';
 
             let selectedFile = null;
 
@@ -249,26 +259,94 @@
                     showStatus('🔄 Processing file...', 'info');
                     updateProgress(10);
 
-                    const options = {
-                        scale: parseFloat(document.getElementById('scale').value),
-                        translate: new Vec3(
-                            parseFloat(document.getElementById('translateX').value),
-                            parseFloat(document.getElementById('translateY').value),
-                            parseFloat(document.getElementById('translateZ').value)
-                        ),
-                        rotate: new Vec3(
-                            parseFloat(document.getElementById('rotateX').value),
-                            parseFloat(document.getElementById('rotateY').value),
-                            parseFloat(document.getElementById('rotateZ').value)
-                        ),
-                        filterNaN: document.getElementById('filterNaN').checked,
-                        outputFormat: document.getElementById('outputFormat').value,
-                        outputFilename: selectedFile.name.replace(/\.[^/.]+$/, '') + '_processed',
-                    };
+                    const actions = [];
+
+                    // Add scale action
+                    const scale = parseFloat(document.getElementById('scale').value);
+                    if (scale !== 1.0) {
+                        actions.push({ kind: 'scale', value: scale });
+                    }
+
+                    // Add translate action
+                    const translateX = parseFloat(document.getElementById('translateX').value);
+                    const translateY = parseFloat(document.getElementById('translateY').value);
+                    const translateZ = parseFloat(document.getElementById('translateZ').value);
+                    if (translateX !== 0 || translateY !== 0 || translateZ !== 0) {
+                        actions.push({
+                            kind: 'translate',
+                            value: { x: translateX, y: translateY, z: translateZ },
+                        });
+                    }
+
+                    // Add rotate action
+                    const rotateX = parseFloat(document.getElementById('rotateX').value);
+                    const rotateY = parseFloat(document.getElementById('rotateY').value);
+                    const rotateZ = parseFloat(document.getElementById('rotateZ').value);
+                    if (rotateX !== 0 || rotateY !== 0 || rotateZ !== 0) {
+                        actions.push({
+                            kind: 'rotate',
+                            value: { x: rotateX, y: rotateY, z: rotateZ },
+                        });
+                    }
+
+                    // Add filter action
+                    if (document.getElementById('filterNaN').checked) {
+                        actions.push({ kind: 'filterNaN' });
+                    }
+
+                    const outputFormat = document.getElementById('outputFormat').value;
+                    const outputFilename =
+                        selectedFile.name.replace(/\.[^/.]+$/, '') + '_processed';
 
                     updateProgress(30);
 
-                    const result = await processGaussianSplatWeb(selectedFile, options);
+                    let result;
+                    if (outputFormat === 'json') {
+                        // SOGS format
+                        result = await convertSogs(selectedFile, actions);
+                    } else {
+                        // Read file first
+                        const filename = selectedFile.name.toLowerCase();
+                        let dataTable;
+
+                        if (filename.endsWith('.ply')) {
+                            const plyData = await readPlyFromFile(selectedFile);
+                            dataTable = plyData.elements[0].dataTable;
+                        } else if (filename.endsWith('.splat')) {
+                            const splatData = await readSplatFromFile(selectedFile);
+                            dataTable = splatData.elements[0].dataTable;
+                        } else if (filename.endsWith('.ksplat')) {
+                            const ksplatData = await readKsplatFromFile(selectedFile);
+                            dataTable = ksplatData.elements[0].dataTable;
+                        } else {
+                            throw new Error(`Unsupported file type: ${filename}`);
+                        }
+
+                        // Process data
+                        const processedDataTable = processDataTable(dataTable, actions);
+
+                        // Write output
+                        let outputData;
+                        if (outputFormat === 'ply') {
+                            outputData = await writePlyToBlob({
+                                elements: [{ dataTable: processedDataTable }],
+                            });
+                        } else if (outputFormat === 'compressed.ply') {
+                            outputData = await writeCompressedPlyToBlob(processedDataTable);
+                        } else if (outputFormat === 'csv') {
+                            outputData = await writeCsvToBlob(processedDataTable);
+                        } else {
+                            throw new Error(`Unsupported output format: ${outputFormat}`);
+                        }
+
+                        result = {
+                            outputFormat,
+                            outputData,
+                            inputRows: dataTable.numRows,
+                            outputRows: processedDataTable.numRows,
+                            actionsApplied: actions.length,
+                        };
+                    }
 
                     console.log(result);
 
@@ -277,8 +355,8 @@
                     // Handle different output formats
                     if (result.outputFormat === 'json') {
                         // SOGS format returns multiple files
-                        const files = result.outputData.files;
-                        const meta = result.outputData.meta;
+                        const files = result.files;
+                        const meta = result.meta;
 
                         // Create a zip-like structure or download individual files
                         for (const [filename, data] of Object.entries(files)) {
@@ -290,7 +368,7 @@
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = isJson ? `${result.outputFilename}.${filename}` : filename;
+                            a.download = isJson ? `${outputFilename}.${filename}` : filename;
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);
@@ -310,7 +388,7 @@
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = result.outputFilename + '.' + result.outputFormat;
+                        a.download = outputFilename + '.' + result.outputFormat;
                         document.body.appendChild(a);
                         a.click();
                         document.body.removeChild(a);

@@ -1,12 +1,15 @@
+import { Buffer } from 'node:buffer';
+import { FileHandle } from 'node:fs/promises';
+
 import { Column, DataTable } from '../data-table';
 
 type PlyProperty = {
-    name: string; // 'x', f_dc_0', etc
-    type: string; // 'float', 'char', etc
+    name: string;               // 'x', f_dc_0', etc
+    type: string;               // 'float', 'char', etc
 };
 
 type PlyElement = {
-    name: string; // 'vertex', etc
+    name: string;               // 'vertex', etc
     count: number;
     properties: PlyProperty[];
 };
@@ -16,45 +19,36 @@ type PlyHeader = {
     elements: PlyElement[];
 };
 
-export type PlyData = {
+type PlyData = {
     comments: string[];
     elements: {
-        name: string;
-        dataTable: DataTable;
+        name: string,
+        dataTable: DataTable
     }[];
 };
 
 const getDataType = (type: string) => {
     switch (type) {
-        case 'char':
-            return Int8Array;
-        case 'uchar':
-            return Uint8Array;
-        case 'short':
-            return Int16Array;
-        case 'ushort':
-            return Uint16Array;
-        case 'int':
-            return Int32Array;
-        case 'uint':
-            return Uint32Array;
-        case 'float':
-            return Float32Array;
-        case 'double':
-            return Float64Array;
-        default:
-            return null;
+        case 'char': return Int8Array;
+        case 'uchar': return Uint8Array;
+        case 'short': return Int16Array;
+        case 'ushort': return Uint16Array;
+        case 'int': return Int32Array;
+        case 'uint': return Uint32Array;
+        case 'float': return Float32Array;
+        case 'double': return Float64Array;
+        default: return null;
     }
 };
 
 // parse the ply header text and return an array of Element structures and a
 // string containing the ply format
-const parseHeader = (data: Uint8Array): PlyHeader => {
+const parseHeader = (data: Buffer): PlyHeader => {
     // decode header and split into lines
     const strings = new TextDecoder('ascii')
-        .decode(data)
-        .split('\n')
-        .filter(line => line);
+    .decode(data)
+    .split('\n')
+    .filter(line => line);
 
     const elements: PlyElement[] = [];
     const comments: string[] = [];
@@ -78,7 +72,7 @@ const parseHeader = (data: Uint8Array): PlyHeader => {
                 element = {
                     name: words[1],
                     count: parseInt(words[2], 10),
-                    properties: [],
+                    properties: []
                 };
                 elements.push(element);
                 break;
@@ -89,7 +83,7 @@ const parseHeader = (data: Uint8Array): PlyHeader => {
                 }
                 element.properties.push({
                     name: words[2],
-                    type: words[1],
+                    type: words[1]
                 });
                 break;
             }
@@ -111,28 +105,20 @@ const cmp = (a: Uint8Array, b: Uint8Array, aOffset = 0) => {
     return true;
 };
 
-const magicBytes = new Uint8Array([112, 108, 121, 10]); // ply\n
-const endHeaderBytes = new Uint8Array([10, 101, 110, 100, 95, 104, 101, 97, 100, 101, 114, 10]); // \nend_header\n
+const magicBytes = new Uint8Array([112, 108, 121, 10]);                                                 // ply\n
+const endHeaderBytes = new Uint8Array([10, 101, 110, 100, 95, 104, 101, 97, 100, 101, 114, 10]);        // \nend_header\n
 
-/**
- * Read PLY data from an ArrayBuffer
- * @param buffer - The ArrayBuffer containing PLY data
- * @returns Promise that resolves to PlyData
- */
-export const readPlyFromBuffer = async (buffer: ArrayBuffer): Promise<PlyData> => {
-    const data = new Uint8Array(buffer);
+const readPly = async (fileHandle: FileHandle): Promise<PlyData> => {
 
     // we don't support ply text header larger than 128k
-    const headerBuf = new Uint8Array(128 * 1024);
+    const headerBuf = Buffer.alloc(128 * 1024);
 
     // smallest possible header size
     let headerSize = magicBytes.length + endHeaderBytes.length;
 
-    if (data.length < headerSize) {
+    if ((await fileHandle.read(headerBuf, 0, headerSize)).bytesRead !== headerSize) {
         throw new Error('failed to read file header');
     }
-
-    headerBuf.set(data.subarray(0, headerSize));
 
     if (!cmp(headerBuf, magicBytes)) {
         throw new Error('invalid file header');
@@ -141,12 +127,9 @@ export const readPlyFromBuffer = async (buffer: ArrayBuffer): Promise<PlyData> =
     // read the rest of the header till we find end header byte pattern
     while (true) {
         // read the next character
-        if (headerSize >= data.length) {
+        if ((await fileHandle.read(headerBuf, headerSize++, 1)).bytesRead !== 1) {
             throw new Error('failed to read file header');
         }
-
-        headerBuf[headerSize] = data[headerSize];
-        headerSize++;
 
         // check if we've reached the end of the header
         if (cmp(headerBuf, endHeaderBytes, headerSize - endHeaderBytes.length)) {
@@ -159,12 +142,10 @@ export const readPlyFromBuffer = async (buffer: ArrayBuffer): Promise<PlyData> =
 
     // create a data table for each ply element
     const elements = [];
-    let dataOffset = headerSize;
-
     for (let i = 0; i < header.elements.length; ++i) {
         const element = header.elements[i];
 
-        const columns = element.properties.map(property => {
+        const columns = element.properties.map((property) => {
             return new Column(property.name, new (getDataType(property.type))(element.count));
         });
 
@@ -175,17 +156,12 @@ export const readPlyFromBuffer = async (buffer: ArrayBuffer): Promise<PlyData> =
         // read data in chunks of 1024 rows at a time
         const chunkSize = 1024;
         const numChunks = Math.ceil(element.count / chunkSize);
-        const chunkData = new Uint8Array(chunkSize * rowSize);
+        const chunkData = Buffer.alloc(chunkSize * rowSize);
 
         for (let c = 0; c < numChunks; ++c) {
             const numRows = Math.min(chunkSize, element.count - c * chunkSize);
 
-            if (dataOffset + rowSize * numRows > data.length) {
-                throw new Error('unexpected end of file');
-            }
-
-            chunkData.set(data.subarray(dataOffset, dataOffset + rowSize * numRows));
-            dataOffset += rowSize * numRows;
+            await fileHandle.read(chunkData, 0, rowSize * numRows);
 
             let offset = 0;
 
@@ -196,7 +172,7 @@ export const readPlyFromBuffer = async (buffer: ArrayBuffer): Promise<PlyData> =
                 // copy into column data
                 for (let p = 0; p < columns.length; ++p) {
                     const s = sizes[p];
-                    buffers[p].set(chunkData.subarray(offset, offset + s), rowOffset * s);
+                    chunkData.copy(buffers[p], rowOffset * s, offset, offset + s);
                     offset += s;
                 }
             }
@@ -204,30 +180,14 @@ export const readPlyFromBuffer = async (buffer: ArrayBuffer): Promise<PlyData> =
 
         elements.push({
             name: element.name,
-            dataTable: new DataTable(columns),
+            dataTable: new DataTable(columns)
         });
     }
 
     return {
         comments: header.comments,
-        elements,
+        elements
     };
 };
 
-/**
- * Read PLY data from a File object
- * @param file - The File object containing PLY data
- * @returns Promise that resolves to PlyData
- */
-export const readPlyFromFile = async (file: File): Promise<PlyData> => {
-    const buffer = await file.arrayBuffer();
-    return readPlyFromBuffer(buffer);
-};
-
-// Legacy function for backward compatibility
-export const readPly = async (fileHandle: any): Promise<PlyData> => {
-    if (fileHandle instanceof File) {
-        return readPlyFromFile(fileHandle);
-    }
-    throw new Error('Unsupported file handle type');
-};
+export { PlyData, readPly };

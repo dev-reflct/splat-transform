@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Simple Browser Module Test</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .test-section {
+                margin: 20px 0;
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            .success {
+                background: #d4edda;
+                border-color: #c3e6cb;
+            }
+            .error {
+                background: #f8d7da;
+                border-color: #f5c6cb;
+            }
+            #output {
+                background: #f8f9fa;
+                padding: 10px;
+                border-radius: 5px;
+                white-space: pre-wrap;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Browser Module Test</h1>
+
+        <div class="test-section">
+            <h2>Module Loading Test</h2>
+            <button onclick="testModuleLoading()">Test Module Loading</button>
+        </div>
+
+        <div class="test-section">
+            <h2>DataTable Test</h2>
+            <button onclick="testDataTable()">Test DataTable Creation</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Processing Test</h2>
+            <button onclick="testProcessing()">Test Processing Functions</button>
+        </div>
+
+        <div class="test-section">
+            <h2>File Reading Test</h2>
+            <input type="file" id="testFile" accept=".ply,.splat,.ksplat" />
+            <button onclick="testFileReading()">Test File Reading</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Output</h2>
+            <div id="output">Ready to test...</div>
+        </div>
+
+        <script type="module">
+            let testResults = [];
+
+            function log(message) {
+                console.log(message);
+                testResults.push(message);
+                document.getElementById('output').textContent = testResults.join('\n');
+            }
+
+            function clearLog() {
+                testResults = [];
+                document.getElementById('output').textContent = 'Ready to test...';
+            }
+
+            // Test module loading
+            window.testModuleLoading = async function () {
+                clearLog();
+                log('Testing module loading...');
+
+                try {
+                    const module = await import('../dist/splat-transform.es.js');
+                    log('✅ Module loaded successfully');
+                    log(`Available exports: ${Object.keys(module).join(', ')}`);
+
+                    // Test specific exports
+                    if (module.DataTable) log('✅ DataTable available');
+                    if (module.processDataTable) log('✅ processDataTable available');
+                    if (module.readPlyFromFile) log('✅ readPlyFromFile available');
+                    if (module.writePlyToBlob) log('✅ writePlyToBlob available');
+                    if (module.convertSogs) log('✅ convertSogs available');
+                } catch (error) {
+                    log(`❌ Module loading failed: ${error.message}`);
+                    console.error('Module loading error:', error);
+                }
+            };
+
+            // Test DataTable creation
+            window.testDataTable = async function () {
+                clearLog();
+                log('Testing DataTable creation...');
+
+                try {
+                    const { DataTable, Column } = await import('../dist/splat-transform.es.js');
+
+                    // Create a simple DataTable
+                    const columns = [
+                        new Column('x', new Float32Array([1, 2, 3])),
+                        new Column('y', new Float32Array([4, 5, 6])),
+                        new Column('z', new Float32Array([7, 8, 9])),
+                    ];
+
+                    const dataTable = new DataTable(columns);
+                    log(
+                        `✅ DataTable created successfully with ${dataTable.numRows} rows and ${dataTable.numColumns} columns`
+                    );
+                    log(`Column names: ${dataTable.columnNames.join(', ')}`);
+                } catch (error) {
+                    log(`❌ DataTable creation failed: ${error.message}`);
+                    console.error('DataTable error:', error);
+                }
+            };
+
+            // Test processing functions
+            window.testProcessing = async function () {
+                clearLog();
+                log('Testing processing functions...');
+
+                try {
+                    const { DataTable, Column, processDataTable } = await import(
+                        '../dist/splat-transform.es.js'
+                    );
+
+                    // Create a test DataTable
+                    const columns = [
+                        new Column('x', new Float32Array([1, 2, 3])),
+                        new Column('y', new Float32Array([4, 5, 6])),
+                        new Column('z', new Float32Array([7, 8, 9])),
+                    ];
+
+                    const dataTable = new DataTable(columns);
+                    log(`✅ Created test DataTable with ${dataTable.numRows} rows`);
+
+                    // Test processing
+                    const processed = processDataTable(dataTable, [{ kind: 'scale', value: 2.0 }]);
+
+                    log(`✅ Processing completed successfully`);
+                    log(
+                        `Original first row: x=${dataTable.getRow(0).x}, y=${dataTable.getRow(0).y}, z=${dataTable.getRow(0).z}`
+                    );
+                    log(
+                        `Processed first row: x=${processed.getRow(0).x}, y=${processed.getRow(0).y}, z=${processed.getRow(0).z}`
+                    );
+                } catch (error) {
+                    log(`❌ Processing test failed: ${error.message}`);
+                    console.error('Processing error:', error);
+                }
+            };
+
+            // Test file reading
+            window.testFileReading = async function () {
+                clearLog();
+                log('Testing file reading...');
+
+                const fileInput = document.getElementById('testFile');
+                const file = fileInput.files[0];
+
+                if (!file) {
+                    log('❌ No file selected');
+                    return;
+                }
+
+                log(`Selected file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+
+                try {
+                    const { readPlyFromFile, readSplatFromFile, readKsplatFromFile } = await import(
+                        '../dist/splat-transform.es.js'
+                    );
+
+                    const filename = file.name.toLowerCase();
+                    let result;
+
+                    if (filename.endsWith('.ply')) {
+                        result = await readPlyFromFile(file);
+                        log('✅ PLY file read successfully');
+                    } else if (filename.endsWith('.splat')) {
+                        result = await readSplatFromFile(file);
+                        log('✅ SPLAT file read successfully');
+                    } else if (filename.endsWith('.ksplat')) {
+                        result = await readKsplatFromFile(file);
+                        log('✅ KSPLAT file read successfully');
+                    } else {
+                        log('❌ Unsupported file type');
+                        return;
+                    }
+
+                    if (result && result.elements && result.elements.length > 0) {
+                        const dataTable = result.elements[0].dataTable;
+                        log(
+                            `✅ File contains ${dataTable.numRows} rows and ${dataTable.numColumns} columns`
+                        );
+                        log(`Columns: ${dataTable.columnNames.join(', ')}`);
+                    }
+                } catch (error) {
+                    log(`❌ File reading failed: ${error.message}`);
+                    console.error('File reading error:', error);
+                }
+            };
+        </script>
+    </body>
+</html>

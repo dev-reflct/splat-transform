@@ -1,7 +1,9 @@
-import { stdout } from '../browser-polyfills';
+import { stdout } from 'node:process';
+
 import { Column, DataTable } from '../data-table';
 import { KdTree } from './kd-tree';
 import { GpuCluster } from '../gpu/gpu-cluster';
+import { GpuDevice } from '../gpu/gpu-device';
 
 const initializeCentroids = (dataTable: DataTable, centroids: DataTable, row: any) => {
     const chosenRows = new Set();
@@ -100,52 +102,66 @@ const clusterKdTreeCpu = (points: DataTable, centroids: DataTable, labels: Uint3
 };
 
 const groupLabels = (labels: Uint32Array, k: number) => {
-    const groups: number[][] = [];
+    const clusters: number[][] = [];
+
     for (let i = 0; i < k; ++i) {
-        groups.push([]);
+        clusters[i] = [];
     }
 
     for (let i = 0; i < labels.length; ++i) {
-        groups[labels[i]].push(i);
+        clusters[labels[i]].push(i);
     }
 
-    return groups;
+    return clusters;
 };
 
-const kmeans = async (points: DataTable, k: number, iterations: number, device?: any) => {
-    stdout.write(`kmeans: ${points.numRows} points, ${k} clusters, ${iterations} iterations\n`);
+const kmeans = async (points: DataTable, k: number, iterations: number, device?: GpuDevice) => {
+    // too few data points
+    if (points.numRows < k) {
+        return {
+            centroids: points.clone(),
+            labels: new Array(points.numRows).fill(0).map((_, i) => i)
+        };
+    }
 
-    // initialize centroids
-    const centroids = new DataTable(
-        points.columns.map(c => new Column(c.name, new (c.data.constructor as any)(k)))
-    );
     const row: any = {};
+
+    // construct centroids data table and assign initial values
+    const centroids = new DataTable(points.columns.map(c => new Column(c.name, new Float32Array(k))));
     initializeCentroids(points, centroids, row);
 
-    // initialize labels
+    const gpuCluster = device && new GpuCluster(device, points, k);
     const labels = new Uint32Array(points.numRows);
 
-    // iterate
-    for (let i = 0; i < iterations; ++i) {
-        stdout.write(`iteration ${i + 1}/${iterations}\n`);
+    let converged = false;
+    let steps = 0;
 
-        // assign points to centroids
-        if (device) {
-            // GPU clustering
-            const gpuCluster = new GpuCluster(device, points, k);
+    console.log(`Running k-means clustering: dims=${points.numColumns} points=${points.numRows} clusters=${k} iterations=${iterations}...`);
+
+    while (!converged) {
+        if (gpuCluster) {
             await gpuCluster.execute(centroids, labels);
         } else {
-            // CPU clustering with KD-tree optimization
             clusterKdTreeCpu(points, centroids, labels);
         }
 
-        // update centroids
+        // calculate the new centroid positions
         const groups = groupLabels(labels, k);
-        for (let j = 0; j < k; ++j) {
-            calcAverage(points, groups[j], row);
-            centroids.setRow(j, row);
+        for (let i = 0; i < centroids.numRows; ++i) {
+            calcAverage(points, groups[i], row);
+            centroids.setRow(i, row);
         }
+
+        steps++;
+
+        if (steps >= iterations) {
+            converged = true;
+        }
+
+        stdout.write('#');
     }
+
+    console.log(' done 🎉');
 
     return { centroids, labels };
 };
