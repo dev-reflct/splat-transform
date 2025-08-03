@@ -36,11 +36,3 @@ export const writeCsvToBlob = (dataTable: DataTable): Blob => {
     const csvString = writeCsvToString(dataTable);
     return new Blob([csvString], { type: 'text/csv' });
 };
-
-// Legacy function for backward compatibility
-export const writeCsv = async (fileHandle: any, dataTable: DataTable): Promise<void> => {
-    if (fileHandle instanceof File) {
-        throw new Error('Cannot write to File object');
-    }
-    throw new Error('Unsupported file handle type');
-};

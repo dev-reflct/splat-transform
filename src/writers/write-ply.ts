@@ -114,11 +114,3 @@ export const writePlyToBlob = (plyData: PlyData): Blob => {
     const buffer = writePlyToBuffer(plyData);
     return new Blob([buffer], { type: 'application/octet-stream' });
 };
-
-// Legacy function for backward compatibility
-export const writePly = async (fileHandle: any, plyData: PlyData): Promise<void> => {
-    if (fileHandle instanceof File) {
-        throw new Error('Cannot write to File object');
-    }
-    throw new Error('Unsupported file handle type');
-};

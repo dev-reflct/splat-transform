@@ -72,7 +72,7 @@ export const writeCompressedPlyToBuffer = (dataTable: DataTable): ArrayBuffer =>
     // sort splats into some kind of order (morton order rn)
     const sortIndices = generateOrdering(dataTable);
 
-    const row: any = {};
+    const row: Record<string, number> = {};
 
     const chunk = new CompressedChunk();
 
@@ -149,22 +149,4 @@ export const writeCompressedPlyToBuffer = (dataTable: DataTable): ArrayBuffer =>
 export const writeCompressedPlyToBlob = (dataTable: DataTable): Blob => {
     const buffer = writeCompressedPlyToBuffer(dataTable);
     return new Blob([buffer], { type: 'application/octet-stream' });
-};
-
-/**
- * Write compressed PLY data to a file handle (legacy function for backward compatibility)
- * @param fileHandle - The file handle to write to
- * @param dataTable - The DataTable to compress and write
- * @returns Promise that resolves when writing is complete
- */
-export const writeCompressedPly = async (fileHandle: any, dataTable: DataTable): Promise<void> => {
-    if (fileHandle && typeof fileHandle.write === 'function') {
-        // Node.js file handle
-        const buffer = writeCompressedPlyToBuffer(dataTable);
-        await fileHandle.write(new Uint8Array(buffer));
-    } else {
-        throw new Error(
-            'Unsupported file handle type. Use writeCompressedPlyToBuffer or writeCompressedPlyToBlob for browser compatibility.'
-        );
-    }
 };

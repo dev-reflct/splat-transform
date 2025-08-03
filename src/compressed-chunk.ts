@@ -7,14 +7,24 @@ const q = new Quat();
 // process and compress a chunk of 256 splats
 class CompressedChunk {
     static members = [
-        'x', 'y', 'z',
-        'scale_0', 'scale_1', 'scale_2',
-        'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity',
-        'rot_0', 'rot_1', 'rot_2', 'rot_3'
+        'x',
+        'y',
+        'z',
+        'scale_0',
+        'scale_1',
+        'scale_2',
+        'f_dc_0',
+        'f_dc_1',
+        'f_dc_2',
+        'opacity',
+        'rot_0',
+        'rot_1',
+        'rot_2',
+        'rot_3',
     ];
 
     size: number;
-    data: any = {};
+    data: Record<string, Float32Array> = {};
 
     // compressed data
     chunkData: Float32Array;
@@ -25,7 +35,7 @@ class CompressedChunk {
 
     constructor(size = 256) {
         this.size = size;
-        CompressedChunk.members.forEach((m) => {
+        CompressedChunk.members.forEach(m => {
             this.data[m] = new Float32Array(size);
         });
         this.chunkData = new Float32Array(18);
@@ -35,8 +45,8 @@ class CompressedChunk {
         this.color = new Uint32Array(size);
     }
 
-    set(index: number, data: any) {
-        CompressedChunk.members.forEach((m) => {
+    set(index: number, data: Record<string, number>) {
+        CompressedChunk.members.forEach(m => {
             this.data[m][index] = data[m];
         });
     }
@@ -57,7 +67,7 @@ class CompressedChunk {
         const normalize = (x: number, min: number, max: number) => {
             if (x <= min) return 0;
             if (x >= max) return 1;
-            return (max - min < 0.00001) ? 0 : (x - min) / (max - min);
+            return max - min < 0.00001 ? 0 : (x - min) / (max - min);
         };
 
         const data = this.data;
@@ -112,23 +122,26 @@ class CompressedChunk {
         };
 
         const pack111011 = (x: number, y: number, z: number) => {
-            return packUnorm(x, 11) << 21 |
-                   packUnorm(y, 10) << 11 |
-                   packUnorm(z, 11);
+            return (packUnorm(x, 11) << 21) | (packUnorm(y, 10) << 11) | packUnorm(z, 11);
         };
 
         const pack8888 = (x: number, y: number, z: number, w: number) => {
-            return packUnorm(x, 8) << 24 |
-                   packUnorm(y, 8) << 16 |
-                   packUnorm(z, 8) << 8 |
-                   packUnorm(w, 8);
+            return (
+                (packUnorm(x, 8) << 24) |
+                (packUnorm(y, 8) << 16) |
+                (packUnorm(z, 8) << 8) |
+                packUnorm(w, 8)
+            );
         };
 
         // pack quaternion into 2,10,10,10
         const packRot = (x: number, y: number, z: number, w: number) => {
             q.set(x, y, z, w).normalize();
             const a = [q.x, q.y, q.z, q.w];
-            const largest = a.reduce((curr, v, i) => (Math.abs(v) > Math.abs(a[curr]) ? i : curr), 0);
+            const largest = a.reduce(
+                (curr, v, i) => (Math.abs(v) > Math.abs(a[curr]) ? i : curr),
+                0
+            );
 
             if (a[largest] < 0) {
                 a[0] = -a[0];
@@ -172,11 +185,29 @@ class CompressedChunk {
             );
         }
 
-        this.chunkData.set([
-            px.min, py.min, pz.min, px.max, py.max, pz.max,
-            sx.min, sy.min, sz.min, sx.max, sy.max, sz.max,
-            cr.min, cg.min, cb.min, cr.max, cg.max, cb.max
-        ], 0);
+        this.chunkData.set(
+            [
+                px.min,
+                py.min,
+                pz.min,
+                px.max,
+                py.max,
+                pz.max,
+                sx.min,
+                sy.min,
+                sz.min,
+                sx.max,
+                sy.max,
+                sz.max,
+                cr.min,
+                cg.min,
+                cb.min,
+                cr.max,
+                cg.max,
+                cb.max,
+            ],
+            0
+        );
     }
 }
 

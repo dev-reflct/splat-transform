@@ -187,22 +187,3 @@ export const readSplatFromFile = async (file: File): Promise<SplatData> => {
     const buffer = await file.arrayBuffer();
     return readSplatFromBuffer(buffer);
 };
-
-/**
- * Read SPLAT data from a file handle (legacy function for backward compatibility)
- * @param fileHandle - The file handle to read from
- * @returns Promise that resolves to SplatData
- */
-export const readSplat = async (fileHandle: any): Promise<SplatData> => {
-    if (fileHandle && typeof fileHandle.read === 'function') {
-        // Node.js file handle
-        const buffer = await fileHandle.readFile();
-        return readSplatFromBuffer(buffer);
-    } else if (fileHandle instanceof File) {
-        // Browser File object
-        return readSplatFromFile(fileHandle);
-    }
-    throw new Error(
-        'Unsupported file handle type. Use readSplatFromFile for browser compatibility.'
-    );
-};

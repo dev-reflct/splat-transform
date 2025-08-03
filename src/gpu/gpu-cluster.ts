@@ -12,11 +12,11 @@ import {
     Shader,
     StorageBuffer,
     UniformBufferFormat,
-    UniformFormat
+    UniformFormat,
 } from 'playcanvas/debug';
 
-import { DataTable } from '../data-table.js';
-import { GpuDevice } from './gpu-device.js';
+import { DataTable } from '../data-table';
+import { GpuDevice } from './gpu-device';
 
 const clusterWgsl = (numColumns: number, useF16: boolean) => {
     const floatType = useF16 ? 'f16' : 'f32';
@@ -150,7 +150,7 @@ class GpuCluster {
         const device = gpuDevice.app.graphicsDevice;
 
         // Check if device supports f16
-        const useF16 = 'supportsShaderF16' in device && device.supportsShaderF16 as boolean;
+        const useF16 = 'supportsShaderF16' in device && (device.supportsShaderF16 as boolean);
         const bytesPerFloat = useF16 ? 2 : 4;
 
         const numPoints = points.numRows;
@@ -160,23 +160,22 @@ class GpuCluster {
             new BindUniformBufferFormat('uniforms', SHADERSTAGE_COMPUTE),
             new BindStorageBufferFormat('pointsBuffer', SHADERSTAGE_COMPUTE, true),
             new BindStorageBufferFormat('centroidsBuffer', SHADERSTAGE_COMPUTE, true),
-            new BindStorageBufferFormat('resultsBuffer', SHADERSTAGE_COMPUTE)
+            new BindStorageBufferFormat('resultsBuffer', SHADERSTAGE_COMPUTE),
         ]);
 
         const shader = new Shader(device, {
             name: 'compute-cluster',
             shaderLanguage: SHADERLANGUAGE_WGSL,
             cshader: clusterWgsl(numColumns, useF16),
-            // @ts-ignore
+            // @ts-expect-error - computeUniformBufferFormats is not a valid property of Shader
             computeUniformBufferFormats: {
                 uniforms: new UniformBufferFormat(device, [
                     new UniformFormat('numPoints', UNIFORMTYPE_UINT),
                     new UniformFormat('numCentroids', UNIFORMTYPE_UINT),
-                    new UniformFormat('pointBase', UNIFORMTYPE_UINT)
-                ])
+                    new UniformFormat('pointBase', UNIFORMTYPE_UINT),
+                ]),
             },
-            // @ts-ignore
-            computeBindGroupFormat: bindGroupFormat
+            computeBindGroupFormat: bindGroupFormat,
         });
 
         const compute = new Compute(device, shader, 'compute-cluster');
@@ -231,12 +230,12 @@ class GpuCluster {
                 compute.setupDispatch(groups);
                 device.computeDispatch([compute], `cluster-dispatch-${batch}`);
 
-                // FIXME: submit call is required, but not public API
-                // @ts-ignore
+                // @ts-expect-error - submit is not a valid method of Device
                 device.submit();
             }
 
             // read results from gpu
+            // @ts-expect-error - read is not a valid method of StorageBuffer
             await resultsBuffer.read(0, undefined, labels, true);
         };
 

@@ -2,8 +2,13 @@ import { stdout } from '../browser-polyfills';
 import { Column, DataTable } from '../data-table';
 import { KdTree } from './kd-tree';
 import { GpuCluster } from '../gpu/gpu-cluster';
+import { GpuDevice } from '../gpu/gpu-device';
 
-const initializeCentroids = (dataTable: DataTable, centroids: DataTable, row: any) => {
+const initializeCentroids = (
+    dataTable: DataTable,
+    centroids: DataTable,
+    row: Record<string, number>
+) => {
     const chosenRows = new Set();
     for (let i = 0; i < centroids.numRows; ++i) {
         let candidateRow;
@@ -17,14 +22,14 @@ const initializeCentroids = (dataTable: DataTable, centroids: DataTable, row: an
     }
 };
 
-const calcAverage = (dataTable: DataTable, cluster: number[], row: any) => {
+const calcAverage = (dataTable: DataTable, cluster: number[], row: Record<string, number>) => {
     const keys = dataTable.columnNames;
 
     for (let i = 0; i < keys.length; ++i) {
         row[keys[i]] = 0;
     }
 
-    const dataRow: any = {};
+    const dataRow: Record<string, number> = {};
     for (let i = 0; i < cluster.length; ++i) {
         dataTable.getRow(cluster[i], dataRow);
 
@@ -84,7 +89,7 @@ const clusterKdTreeCpu = (points: DataTable, centroids: DataTable, labels: Uint3
 
     // construct a kdtree over the centroids so we can find the nearest quickly
     const point = new Float32Array(points.numColumns);
-    const row: any = {};
+    const row: Record<string, number> = {};
 
     // assign each point to the nearest centroid
     for (let i = 0; i < points.numRows; ++i) {
@@ -112,14 +117,22 @@ const groupLabels = (labels: Uint32Array, k: number) => {
     return groups;
 };
 
-const kmeans = async (points: DataTable, k: number, iterations: number, device?: any) => {
+const kmeans = async (points: DataTable, k: number, iterations: number, device?: unknown) => {
     stdout.write(`kmeans: ${points.numRows} points, ${k} clusters, ${iterations} iterations\n`);
 
     // initialize centroids
     const centroids = new DataTable(
-        points.columns.map(c => new Column(c.name, new (c.data.constructor as any)(k)))
+        points.columns.map(
+            c =>
+                new Column(
+                    c.name,
+                    new (c.data.constructor as new (
+                        length: number
+                    ) => Float32Array | Uint8Array | Uint32Array)(k)
+                )
+        )
     );
-    const row: any = {};
+    const row: Record<string, number> = {};
     initializeCentroids(points, centroids, row);
 
     // initialize labels
@@ -132,7 +145,7 @@ const kmeans = async (points: DataTable, k: number, iterations: number, device?:
         // assign points to centroids
         if (device) {
             // GPU clustering
-            const gpuCluster = new GpuCluster(device, points, k);
+            const gpuCluster = new GpuCluster(device as unknown as GpuDevice, points, k);
             await gpuCluster.execute(centroids, labels);
         } else {
             // CPU clustering with KD-tree optimization

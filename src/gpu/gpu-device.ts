@@ -39,12 +39,12 @@ const browserSetup = () => {
 };
 
 class Application extends AppBase {
-    constructor(canvas: HTMLCanvasElement, options: any = {}) {
+    constructor(canvas: HTMLCanvasElement, options?: AppOptions) {
         super(canvas);
 
         const appOptions = new AppOptions();
 
-        appOptions.graphicsDevice = options.graphicsDevice;
+        appOptions.graphicsDevice = options?.graphicsDevice;
 
         appOptions.componentSystems = [
             AnimComponentSystem,
@@ -70,7 +70,7 @@ class Application extends AppBase {
     }
 }
 
-class GpuDevice {
+export class GpuDevice {
     app: Application;
     backbuffer: Texture;
 
@@ -80,7 +80,7 @@ class GpuDevice {
     }
 }
 
-const createDevice = async () => {
+const createDevice = async (): Promise<GpuDevice | null> => {
     // In browser, we can't create a GPU device without a canvas
     // For now, return null to indicate GPU is not available
     return null;

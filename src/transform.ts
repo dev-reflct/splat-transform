@@ -17,10 +17,11 @@ const transform = (dataTable: DataTable, t: Vec3, r: Quat, s: number) => {
     const hasTranslation = ['x', 'y', 'z'].every(c => dataTable.hasColumn(c));
     const hasRotation = ['rot_0', 'rot_1', 'rot_2', 'rot_3'].every(c => dataTable.hasColumn(c));
     const hasScale = ['scale_0', 'scale_1', 'scale_2'].every(c => dataTable.hasColumn(c));
-    const shBands = { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
+    const shBands =
+        { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
     const shCoeffs = new Float32Array([0, 3, 8, 15][shBands]);
 
-    const row: any = {};
+    const row: Record<string, number> = {};
     for (let i = 0; i < dataTable.numRows; ++i) {
         dataTable.getRow(i, row);
 
@@ -63,6 +64,5 @@ const transform = (dataTable: DataTable, t: Vec3, r: Quat, s: number) => {
         dataTable.setRow(i, row);
     }
 };
-
 
 export { transform };

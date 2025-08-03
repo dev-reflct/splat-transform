@@ -1,5 +1,9 @@
 import { DataTable, Column } from './data-table';
 import { ProcessAction, process } from './process';
+import { readPlyFromFile } from './readers/read-ply';
+import { readSplatFromFile } from './readers/read-splat';
+import { readKsplatFromFile } from './readers/read-ksplat';
+import { writeSogsToBlobs } from './writers/write-sogs';
 
 // Core processing functions
 export { process } from './process';
@@ -46,7 +50,7 @@ export const combine = (dataTables: DataTable[]): DataTable => {
         return dataTables[0];
     }
 
-    const findMatchingColumn = (columns: any[], column: any) => {
+    const findMatchingColumn = (columns: Column[], column: Column) => {
         for (let i = 0; i < columns.length; ++i) {
             if (columns[i].name === column.name && columns[i].dataType === column.dataType) {
                 return columns[i];
@@ -71,7 +75,9 @@ export const combine = (dataTables: DataTable[]): DataTable => {
 
     // construct output dataTable
     const resultColumns = columns.map(column => {
-        const constructor = column.data.constructor as new (length: number) => any;
+        const constructor = column.data.constructor as new (
+            length: number
+        ) => Float32Array | Uint8Array | Uint32Array;
         return new Column(column.name, new constructor(totalRows));
     });
     const result = new DataTable(resultColumns);
@@ -150,7 +156,7 @@ export const convertSogs = async (
     shIterations = 10,
     shMethod: 'cpu' | 'gpu' = 'cpu'
 ): Promise<{
-    meta: any;
+    meta: Record<string, unknown>;
     files: {
         [key: string]: Blob;
     };
@@ -160,18 +166,15 @@ export const convertSogs = async (
     let dataTable: DataTable;
 
     if (filename.endsWith('.ply')) {
-        const { readPlyFromFile } = await import('./readers/read-ply');
         const plyData = await readPlyFromFile(file);
         if (plyData.elements.length === 0) {
             throw new Error('No elements found in PLY file');
         }
         dataTable = plyData.elements[0].dataTable;
     } else if (filename.endsWith('.splat')) {
-        const { readSplatFromFile } = await import('./readers/read-splat');
         const splatData = await readSplatFromFile(file);
         dataTable = splatData.elements[0].dataTable;
     } else if (filename.endsWith('.ksplat')) {
-        const { readKsplatFromFile } = await import('./readers/read-ksplat');
         const ksplatData = await readKsplatFromFile(file);
         dataTable = ksplatData.elements[0].dataTable;
     } else {
@@ -189,6 +192,5 @@ export const convertSogs = async (
     }
 
     // Convert to SOGS format
-    const { writeSogsToBlobs } = await import('./writers/write-sogs');
     return writeSogsToBlobs(dataTable, shIterations, shMethod);
 };

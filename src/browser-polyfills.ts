@@ -34,7 +34,7 @@ export const FileHandle = class MockFileHandle {
 // Polyfill for Buffer
 export const Buffer = {
     alloc: (size: number) => new Uint8Array(size),
-    from: (data: any) => new Uint8Array(data),
+    from: (data: ArrayBuffer) => new Uint8Array(data),
 };
 
 // Polyfill for sharp (image processing library)

@@ -271,11 +271,3 @@ export const readPlyFromFile = async (file: File): Promise<PlyData> => {
     const buffer = await file.arrayBuffer();
     return readPlyFromBuffer(buffer);
 };
-
-// Legacy function for backward compatibility
-export const readPly = async (fileHandle: any): Promise<PlyData> => {
-    if (fileHandle instanceof File) {
-        return readPlyFromFile(fileHandle);
-    }
-    throw new Error('Unsupported file handle type');
-};

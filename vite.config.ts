@@ -9,7 +9,7 @@ const __dirname = dirname(__filename);
 export default defineConfig({
     build: {
         lib: {
-            entry: resolve(__dirname, 'src/web.ts'),
+            entry: resolve(__dirname, 'src/index.ts'),
             name: 'SplatTransform',
             fileName: 'splat-transform',
             formats: ['es', 'umd'],

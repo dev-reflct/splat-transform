@@ -426,19 +426,3 @@ export const readKsplatFromFile = async (file: File): Promise<KsplatFileData> =>
     const buffer = await file.arrayBuffer();
     return readKsplatFromBuffer(buffer);
 };
-
-/**
- * Read KSPLAT data from a file handle (legacy function for backward compatibility)
- * @param fileHandle - The file handle to read from
- * @returns Promise that resolves to KsplatFileData
- */
-export const readKsplat = async (fileHandle: any): Promise<KsplatFileData> => {
-    if (fileHandle && typeof fileHandle.read === 'function') {
-        // Node.js file handle
-        const buffer = await fileHandle.readFile();
-        return readKsplatFromBuffer(buffer);
-    }
-    throw new Error(
-        'Unsupported file handle type. Use readKsplatFromFile for browser compatibility.'
-    );
-};

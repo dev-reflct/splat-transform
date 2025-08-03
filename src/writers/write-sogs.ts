@@ -46,7 +46,7 @@ const identity = (index: number, width: number) => {
 };
 
 export type SogsData = {
-    meta: any;
+    meta: Record<string, unknown>;
     files: {
         [key: string]: Blob;
     };
@@ -75,13 +75,13 @@ export const writeSogsToBlobs = async (
     const createWebpBlob = async (data: Uint8Array, w = width, h = height): Promise<Blob> => {
         // For browser compatibility, we'll create a simple blob
         // In a real implementation, you might want to use a WebP encoder library
-        return new Blob([data], { type: 'image/webp' });
+        return new Blob([data.buffer as ArrayBuffer], { type: 'image/webp' });
     };
 
     // the layout function determines how the data is packed into the output texture.
     const layout = identity; // rectChunks;
 
-    const row: any = {};
+    const row: Record<string, number> = {};
     const files: { [key: string]: Blob } = {};
 
     // convert position/means
@@ -211,7 +211,7 @@ export const writeSogsToBlobs = async (
     files['sh0.webp'] = await createWebpBlob(sh0);
 
     // write meta.json
-    const meta: any = {
+    const meta: Record<string, unknown> = {
         means: {
             shape: [numRows, 3],
             dtype: 'float32',
@@ -245,7 +245,6 @@ export const writeSogsToBlobs = async (
     const shBands =
         { '9': 1, '24': 2, '-1': 3 }[shNames.findIndex(v => !dataTable.hasColumn(v))] ?? 0;
 
-    // @ts-ignore
     if (shBands > 0) {
         const shCoeffs = [0, 3, 8, 15][shBands];
         const shColumnNames = shNames.slice(0, shCoeffs * 3);
@@ -273,7 +272,7 @@ export const writeSogsToBlobs = async (
         const centroidsMinMax = calcMinMax(shDataTable, shColumnNames);
         const centroidsMin = centroidsMinMax.map(v => v[0]).reduce((a, b) => Math.min(a, b));
         const centroidsMax = centroidsMinMax.map(v => v[1]).reduce((a, b) => Math.max(a, b));
-        const centroidsRow: any = {};
+        const centroidsRow: Record<string, number> = {};
         for (let i = 0; i < centroids.numRows; ++i) {
             centroids.getRow(i, centroidsRow);
 
@@ -324,18 +323,4 @@ export const writeSogsToBlobs = async (
         meta,
         files,
     };
-};
-
-// Legacy function for backward compatibility
-export const writeSogs = async (
-    fileHandle: any,
-    dataTable: DataTable,
-    outputFilename: string,
-    shIterations = 10,
-    shMethod: 'cpu' | 'gpu' = 'cpu'
-): Promise<void> => {
-    if (fileHandle instanceof File) {
-        throw new Error('Cannot write to File object');
-    }
-    throw new Error('Unsupported file handle type');
 };

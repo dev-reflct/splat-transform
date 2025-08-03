@@ -41,8 +41,6 @@
     },
     "devDependencies": {
         "@playcanvas/eslint-config": "^2.1.0",
-        "@types/jsdom": "^21.1.7",
-        "@types/node": "^24.1.0",
         "@typescript-eslint/eslint-plugin": "^8.38.0",
         "@typescript-eslint/parser": "^8.38.0",
         "@vitejs/plugin-react": "^4.7.0",
