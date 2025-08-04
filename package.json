@@ -18,17 +18,18 @@
         "type": "git",
         "url": "git+https://github.com/playcanvas/splat-transform.git"
     },
-    "main": "dist/splat-transform.es.js",
-    "module": "dist/splat-transform.es.js",
-    "types": "dist/splat-transform.d.ts",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
     "exports": {
         ".": {
-            "import": "./dist/splat-transform.es.js",
-            "types": "./dist/splat-transform.d.ts"
+            "types": "./dist/index.d.ts",
+            "require": "./dist/index.js",
+            "import": "./dist/index.mjs"
         }
     },
     "files": [
-        "dist/"
+        "dist"
     ],
     "scripts": {
         "dev": "vite",
